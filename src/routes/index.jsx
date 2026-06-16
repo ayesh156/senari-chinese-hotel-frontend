@@ -27,7 +27,6 @@ import MasterDataPage         from '../pages/pos/MasterDataPage'
 import SuppliersPage          from '../pages/pos/SuppliersPage'
 import PurchaseOrdersPage     from '../pages/pos/PurchaseOrdersPage'
 
-// Simple fallback shown when a route is not found or throws
 function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-gray-500">
@@ -57,7 +56,7 @@ const router = createBrowserRouter([
     ],
   },
 
-  // ── Admin POS System ──────────────────────────────────────
+  // ── Admin POS System (includes Quick POS) ─────────────────
   {
     path: '/pos',
     element: <ProtectedRoute><POSLayout /></ProtectedRoute>,
@@ -69,6 +68,7 @@ const router = createBrowserRouter([
       { path: 'foods',          element: <FoodsListPage /> },
       { path: 'foods/add',      element: <FoodFormPage /> },
       { path: 'foods/edit/:id', element: <FoodFormPage /> },
+      { path: 'quick',          element: <QuickPOSPage /> },
       { path: 'inventory',      element: <InventoryPage /> },
       { path: 'master-data',    element: <MasterDataPage /> },
       { path: 'reports',        element: <ReportsPage /> },
@@ -80,14 +80,7 @@ const router = createBrowserRouter([
     ],
   },
 
-  // ── Quick POS Register (full-screen, no POSLayout wrapper) ────────────────
-  {
-    path: '/pos/quick',
-    element: <ProtectedRoute><QuickPOSPage /></ProtectedRoute>,
-    errorElement: <div className="p-8 text-center text-gray-500">Something went wrong.</div>,
-  },
-
-  // ── POS Login (public) ────────────────────────────────────────────────────
+  // ── POS Login (public) ────────────────────────────────────
   {
     path: '/pos/login',
     element: <StaffLoginPage />,

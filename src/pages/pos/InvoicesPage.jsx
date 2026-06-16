@@ -1,14 +1,27 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Search, Eye, Printer, X, Plus, Trash2, AlertTriangle,
+  Search, Eye, Plus, Trash2, AlertTriangle,
   CheckCircle2, XCircle,
   SlidersHorizontal, ChevronDown, List, LayoutGrid,
 } from 'lucide-react'
-import { MOCK_ORDERS } from '../../utils/mockOrders'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import ModernPagination from '../../components/ui/ModernPagination'
-import { printThermalReceipt } from '../../components/ui/ThermalReceipt'
+import ReceiptModal from '../../components/pos/ReceiptModal'
+import { useInvoiceStore } from '../../utils/invoiceStore'
+
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+
+function getCustomerName(order) {
+  if (order.customerName) return order.customerName
+  try {
+    if (order.notes) {
+      const parsed = JSON.parse(order.notes)
+      if (parsed.customerName) return parsed.customerName
+    }
+  } catch {}
+  return 'Walk-in Customer'
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -111,8 +124,8 @@ function DeleteModal({ order, onConfirm, onCancel }) {
                         text-gray-900 dark:text-white
                         bg-gray-100 dark:bg-gray-800/50
                         border-gray-200 dark:border-gray-700/50">
-            {invNum(order.id)} — {order.customerName} · Rs.{' '}
-            {order.grandTotal.toLocaleString('en-LK')}
+            {invNum(order.id)} — {getCustomerName(order)} · Rs.{' '}
+            {Number(order.total || 0).toLocaleString('en-LK')}
           </p>
         </div>
         <div className="p-6 border-t border-gray-200 dark:border-gray-700/50 flex gap-3">
@@ -136,246 +149,16 @@ function DeleteModal({ order, onConfirm, onCancel }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// INVOICE PREVIEW MODAL — Thermal Receipt Style
-// ─────────────────────────────────────────────────────────────────────────────
-const DASH  = '─'.repeat(32)
-const DOTTED = '·'.repeat(32)
-
-function fmtMoney(n) {
-  return `Rs. ${Number(n).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
-}
-
-function ReceiptRow({ label, value, bold, large, accent, neg }) {
-  return (
-    <div className={`flex justify-between items-baseline gap-2
-                     ${large ? 'mt-1 pt-2 border-t-2 border-gray-900 dark:border-gray-100' : ''}`}>
-      <span className={`font-mono text-xs shrink-0
-                        ${large  ? 'text-sm font-black text-gray-900 dark:text-gray-100' :
-                          bold   ? 'font-bold text-gray-700 dark:text-gray-300' :
-                          accent ? 'text-gray-500 dark:text-gray-400' :
-                                   'text-gray-500 dark:text-gray-400'}`}>
-        {label}
-      </span>
-      <span className={`font-mono text-xs tabular-nums text-right
-                        ${large  ? 'text-sm font-black text-gray-900 dark:text-gray-100' :
-                          bold   ? 'font-bold text-gray-700 dark:text-gray-300' :
-                          neg    ? 'text-gray-600 dark:text-gray-400' :
-                                   'text-gray-700 dark:text-gray-300'}`}>
-        {value}
-      </span>
-    </div>
-  )
-}
-
-function Divider({ dotted }) {
-  return (
-    <p className={`font-mono text-[10px] leading-none select-none overflow-hidden
-                   ${dotted ? 'text-gray-400 dark:text-gray-600' : 'text-gray-300 dark:text-gray-700'}`}>
-      {dotted ? DOTTED : DASH}
-    </p>
-  )
-}
-
-function InvoiceModal({ order, onClose }) {
-  const { date, time } = formatDateTime(order.createdAt)
-
-  function handlePrint() {
-    printThermalReceipt({
-      invoiceNumber : invNum(order.id),
-      orderType     : order.orderType === 'DINE_IN' ? 'Dine-in' : 'Pick-up',
-      tableNumber   : order.tableNumber ?? '',
-      customerName  : order.customerName,
-      cashierName   : 'Admin',
-      items         : order.items.map(i => ({
-        name  : i.name,
-        qty   : i.quantity,
-        price : i.unitPrice,
-      })),
-      subtotal      : order.subtotal,
-      discount      : order.discountAmount ?? 0,
-      total         : order.grandTotal,
-      paymentMethod : order.paymentMethod ?? order.paymentStatus,
-      issuedAt      : new Date(order.createdAt),
-    })
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50
-                    flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl
-                      border border-gray-200 dark:border-gray-800
-                      w-full max-w-sm max-h-[92vh] flex flex-col overflow-hidden">
-
-        {/* ── Modal chrome header ── */}
-        <div className="flex items-center justify-between px-4 py-3 shrink-0
-                        border-b border-gray-100 dark:border-gray-800">
-          <div className="flex items-center gap-2">
-            <Printer size={15} className="text-amber-500" />
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-              Receipt Preview
-            </span>
-          </div>
-          <button onClick={onClose} aria-label="Close"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white
-                       hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* ── Scrollable receipt body ── */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 py-5">
-
-          {/* Receipt paper card */}
-          <div className="bg-white dark:bg-gray-950 rounded-xl shadow-md
-                          border border-gray-100 dark:border-gray-800
-                          px-5 py-5 flex flex-col gap-2
-                          font-mono">
-
-            {/* ── HEADER ── */}
-            <div className="text-center mb-1">
-              <p className="text-base font-black tracking-widest uppercase text-gray-900 dark:text-gray-100">
-                SENARI CHINESE
-              </p>
-              <p className="text-base font-black tracking-widest uppercase text-gray-900 dark:text-gray-100">
-                HOTEL
-              </p>
-              <p className="text-[10px] tracking-[3px] uppercase text-gray-500 dark:text-gray-400 mt-0.5">
-                Authentic Chinese Cuisine
-              </p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 leading-snug">
-                Senari Chinese Hotel, Sri Lanka{'\n'}Tel: +94 41 234 5678
-              </p>
-            </div>
-
-            <Divider />
-
-            {/* ── META ── */}
-            <div className="flex flex-col gap-0.5">
-              <ReceiptRow label="Invoice :" value={invNum(order.id)}          bold />
-              <ReceiptRow label="Date    :" value={date}                       />
-              <ReceiptRow label="Time    :" value={time}                       />
-              <ReceiptRow label="Type    :" value={order.orderType === 'DINE_IN' ? 'Dine-in' : 'Pick-up'} />
-              {order.customerName && (
-                <ReceiptRow label="Customer:" value={order.customerName}       />
-              )}
-              {order.customerPhone && (
-                <ReceiptRow label="Phone   :" value={order.customerPhone}      />
-              )}
-              <ReceiptRow label="Cashier :" value="Admin"                      />
-            </div>
-
-            <Divider />
-
-            {/* ── ITEMS HEADER ── */}
-            <p className="text-center text-[10px] font-bold tracking-[3px] uppercase
-                          text-gray-500 dark:text-gray-400">
-              ORDER ITEMS
-            </p>
-
-            <Divider dotted />
-
-            {/* ── ITEM ROWS ── */}
-            <div className="flex flex-col gap-1.5">
-              {order.items.map(item => (
-                <div key={item.id}>
-                  <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
-                    {item.name}
-                  </p>
-                  <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400">
-                    <span>{item.quantity} × {fmtMoney(item.unitPrice)}</span>
-                    <span className="tabular-nums">{fmtMoney(item.subtotal)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <Divider dotted />
-
-            {/* ── TOTALS ── */}
-            <div className="flex flex-col gap-0.5">
-              <ReceiptRow label="Subtotal" value={fmtMoney(order.subtotal)} />
-              {(order.discountAmount ?? 0) > 0 && (
-                <ReceiptRow
-                  label="Discount"
-                  value={`- ${fmtMoney(order.discountAmount)}`}
-                  neg
-                />
-              )}
-              <ReceiptRow
-                label="TOTAL"
-                value={fmtMoney(order.grandTotal)}
-                large
-              />
-            </div>
-
-            <Divider />
-
-            {/* ── PAYMENT ── */}
-            <div className="flex flex-col gap-0.5">
-              <ReceiptRow
-                label="Payment"
-                value={order.paymentMethod ?? order.paymentStatus}
-                bold
-              />
-              <ReceiptRow
-                label="Status"
-                value={order.paymentStatus === 'PAID' ? '✓ PAID' : 'UNPAID'}
-                bold
-              />
-            </div>
-
-            <Divider />
-
-            {/* ── FOOTER ── */}
-            <div className="text-center mt-1 flex flex-col gap-0.5">
-              <p className="text-xs font-black tracking-widest uppercase text-gray-900 dark:text-gray-100">
-                THANK YOU!
-              </p>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400">Please come again</p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                Pick-up &amp; Dine-in only · Pay at Counter
-              </p>
-              <p className="text-[10px] tracking-widest text-gray-400 dark:text-gray-500 mt-0.5">
-                www.senarichinese.lk
-              </p>
-            </div>
-
-          </div>
-        </div>
-
-        {/* ── Action bar ── */}
-        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 shrink-0 flex gap-2">
-          <button
-            onClick={handlePrint}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5
-                       bg-gradient-to-r from-amber-500 to-orange-500
-                       text-white rounded-xl font-semibold text-sm
-                       hover:opacity-90 transition-opacity shadow-md shadow-amber-500/20"
-          >
-            <Printer size={15} /> Print Receipt
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-xl font-medium text-sm border transition-colors
-                       bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700
-                       text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function InvoicesPage() {
   const navigate = useNavigate()
 
-  // Local orders list — starts from mock data
-  const [orders,              setOrders]              = useState(MOCK_ORDERS)
+  // ── Invoice store ────────────────────────────────────────────────────────
+  const { orders, loading, fetchOrders, deleteOrder } = useInvoiceStore()
+
+  // Fetch on mount
+  useEffect(() => { fetchOrders() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [search,              setSearch]              = useState('')
   const [dateFilter,          setDateFilter]          = useState('all')
   const [paymentFilter,       setPaymentFilter]       = useState('all')
@@ -395,9 +178,9 @@ export default function InvoicesPage() {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
-  // Delete — remove by id, clamp page
-  function handleDeleteInvoice(id) {
-    setOrders(prev => prev.filter(o => o.id !== id))
+  // Delete — via API
+  async function handleDeleteInvoice(id) {
+    await deleteOrder(id)
     setDelOrder(null)
     resetPage()
   }
@@ -410,8 +193,8 @@ export default function InvoicesPage() {
       .filter(o => {
         const matchSearch  = !q ||
           invNum(o.id).toLowerCase().includes(q) ||
-          o.orderNumber.toLowerCase().includes(q) ||
-          o.customerName.toLowerCase().includes(q)
+          (o.invoiceNumber || '').toLowerCase().includes(q) ||
+          getCustomerName(o).toLowerCase().includes(q)
         const matchDate    = isInDateRange(o.createdAt, dateFilter)
         const matchPayment = paymentFilter === 'all' || o.paymentStatus === paymentFilter
         const matchType    = typeFilter === 'all' || o.orderType === typeFilter
@@ -436,7 +219,7 @@ export default function InvoicesPage() {
   // Summary stats
   const totalRevenue = orders
     .filter(o => o.paymentStatus === 'PAID')
-    .reduce((s, o) => s + o.grandTotal, 0)
+    .reduce((s, o) => s + Number(o.total || 0), 0)
   const paidCount   = orders.filter(o => o.paymentStatus === 'PAID').length
   const unpaidCount = orders.filter(o => o.paymentStatus === 'UNPAID').length
 
@@ -636,10 +419,7 @@ export default function InvoicesPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="font-extrabold text-amber-500 text-sm leading-tight">
-                              {invNum(order.id)}
-                            </p>
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                              {order.orderNumber}
+                              {order.invoiceNumber || invNum(order.id)}
                             </p>
                           </div>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full
@@ -654,9 +434,8 @@ export default function InvoicesPage() {
                         {/* Customer */}
                         <div>
                           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                            {order.customerName}
+                            {getCustomerName(order)}
                           </p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">{order.customerPhone}</p>
                         </div>
                         {/* Date + Total */}
                         <div className="flex items-center justify-between gap-2 mt-auto pt-1">
@@ -665,7 +444,7 @@ export default function InvoicesPage() {
                             <p className="text-[10px] text-gray-400 dark:text-gray-500">{time}</p>
                           </div>
                           <p className="text-base font-extrabold text-gray-900 dark:text-gray-100 tabular-nums">
-                            Rs. {order.grandTotal.toLocaleString('en-LK')}
+                            Rs. {Number(order.total || 0).toLocaleString('en-LK')}
                           </p>
                         </div>
                         <PaymentBadge status={order.paymentStatus} />
@@ -725,16 +504,14 @@ export default function InvoicesPage() {
                                  hover:bg-amber-50/50 dark:hover:bg-gray-800/30
                                  transition-colors duration-150">
                       <td className="px-4 py-3">
-                        <p className="font-bold text-amber-500 whitespace-nowrap">{invNum(order.id)}</p>
-                        <p className="text-[11px] text-gray-400 dark:text-gray-600">{order.orderNumber}</p>
+                        <p className="font-bold text-amber-500 whitespace-nowrap">{order.invoiceNumber || invNum(order.id)}</p>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="text-gray-800 dark:text-gray-200 font-medium">{date}</p>
                         <p className="text-xs text-gray-400 dark:text-gray-500">{time}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{order.customerName}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">{order.customerPhone}</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{getCustomerName(order)}</p>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
@@ -746,7 +523,7 @@ export default function InvoicesPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-gray-100">
-                        Rs. {order.grandTotal.toLocaleString('en-LK')}
+                        Rs. {Number(order.total || 0).toLocaleString('en-LK')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <PaymentBadge status={order.paymentStatus} />
@@ -796,13 +573,8 @@ export default function InvoicesPage() {
         )}
       </div>
 
-      {/* ── Invoice Preview Modal ── */}
-      {activeInvoice && (
-        <InvoiceModal
-          order={activeInvoice}
-          onClose={() => setActiveInvoice(null)}
-        />
-      )}
+      {/* ── Invoice Preview Modal (shared ReceiptModal) ── */}
+      <ReceiptModal isOpen={!!activeInvoice} order={activeInvoice} onClose={() => setActiveInvoice(null)} />
 
       {/* ── Delete Confirmation ── */}
       {delOrder && (
