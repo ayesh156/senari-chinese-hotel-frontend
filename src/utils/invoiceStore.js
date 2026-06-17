@@ -28,6 +28,23 @@ export const useInvoiceStore = create((set, get) => ({
     }
   },
 
+  // Real-time: prepend a new invoice to the list
+  addInvoiceToList: (invoice) => {
+    set((state) => {
+      // Don't add duplicates
+      if (state.orders.find(o => o.id === invoice.id)) return state
+      return { orders: [invoice, ...state.orders] }
+    })
+  },
+
+  // Real-time: move updated invoice to the top of the list
+  updateInvoiceInList: (invoice) => {
+    set((state) => {
+      const filtered = state.orders.filter(o => o.id !== invoice.id)
+      return { orders: [invoice, ...filtered] }
+    })
+  },
+
   deleteOrder: async (id) => {
     try {
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'

@@ -82,7 +82,67 @@ export const useCartStore = create((set, get) => ({
   setCustomerName: (customerName) => set({ customerName }),
 
   // ── Submit order to backend ───────────────────────────────────────────
-  submitOrder: async ({ orderType, invoiceNumber, customerName }) => {
+  // Hydrate cart from existing order (for edit mode)
+  hydrateFromOrder: (order) => {
+    let name = '';
+    try { if (order.notes) { const p = JSON.parse(order.notes); if (p.customerName) name = p.customerName; } } catch {}
+    if (!name) name = order.customerName || 'Walk-in Customer';
+    const subtotal = Number(order.subtotal || 0);
+    const discountAmt = Number(order.discount || 0);
+    // Convert amount to percentage: if subtotal > 0, percent = (discountAmt / subtotal) * 100
+    const percent = subtotal > 0 ? Math.round((discountAmt / subtotal) * 100) : 0;
+    const items = (order.items || []).map(i => ({
+      id: i.foodId || i.id,
+      name: i.food?.name || i.name || 'Item',
+      price: Number(i.unitPrice),
+      image: i.food?.image || '',
+      quantity: i.quantity,
+    }))
+    set({
+      cartItems: items,
+      orderType: order.type === 'DINE_IN' ? 'Dine-in' : 'Takeaway',
+      discount: String(percent > 0 ? percent : ''),
+      discountType: '%',
+      customerCash: String(order.amountPaid || ''),
+      customerName: name,
+    })
+  },
+
+  updateOrder: async ({ orderId, orderType, customerName, amountPaid }) => {
+    const state = get()
+    if (state.cartItems.length === 0) return false
+    set({ isPaying: true })
+    try {
+      const subtotal = state.getSubtotal()
+      const discountAmt = state.getDiscountAmount()
+      const total = state.getGrandTotal()
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const res = await fetch(`${baseUrl}/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderType: orderType === 'Dine-in' ? 'DINE_IN' : 'TAKEAWAY',
+          items: state.cartItems.map(i => ({ foodId: i.id, quantity: i.quantity, unitPrice: i.price })),
+          subtotal,
+          discount: discountAmt,
+          total,
+          amountPaid: Number(amountPaid) || 0,
+          customerName: customerName || 'Walk-in Customer',
+        }),
+      })
+      if (!res.ok) { const errorText = await res.text(); console.error('[cartStore] Update Failed:', errorText); return false }
+      const json = await res.json()
+      if (json.success) {
+        // Edit mode: DO NOT clear cart — user stays on the edit screen
+        // Just return the updated data so the receipt modal can show
+        return json.data
+      }
+      return false
+    } catch (e) { console.error('[cartStore] updateOrder ERROR:', e.message); return false }
+    finally { set({ isPaying: false }) }
+  },
+
+  submitOrder: async ({ orderType, invoiceNumber, customerName, amountPaid }) => {
     const state = get()
     if (state.cartItems.length === 0) return false
 
@@ -102,7 +162,7 @@ export const useCartStore = create((set, get) => ({
           subtotal,
           discount: discountAmt,
           total,
-          paymentMethod: 'Cash',
+          amountPaid: Number(amountPaid) || 0,
           customerName: customerName || 'Walk-in Customer',
         }),
       })

@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Clock, User, ShoppingBag, ChevronDown, ChevronUp,
   ArrowRight, Search, ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
-import { MOCK_ORDERS } from '../../utils/mockOrders'
 import SearchableSelect from '../../components/ui/SearchableSelect'
+import { io } from 'socket.io-client'
+import { useLiveOrdersStore } from '../../utils/liveOrdersStore'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -110,7 +111,7 @@ function OrderCard({ order, col, onAdvance }) {
       <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-amber-500 text-sm">{order.orderNumber}</span>
+            <span className="font-bold text-amber-500 text-sm">{order.invoiceNumber}</span>
             <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${typeCfg.badge}`}>
               {typeCfg.label}
             </span>
@@ -118,7 +119,7 @@ function OrderCard({ order, col, onAdvance }) {
           <div className="flex items-center gap-1.5 mt-1">
             <User size={11} className="text-gray-400 shrink-0" />
             <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
-              {order.customerName}
+              {order.customerName || 'Walk-in Customer'}
             </p>
           </div>
         </div>
@@ -145,7 +146,7 @@ function OrderCard({ order, col, onAdvance }) {
             <ShoppingBag size={12} />
             <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
             <span className="font-bold text-gray-700 dark:text-gray-300 ml-1">
-              Rs. {order.grandTotal.toLocaleString('en-LK')}
+              Rs. {Number(order.total || 0).toLocaleString('en-LK')}
             </span>
           </div>
           {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -161,20 +162,20 @@ function OrderCard({ order, col, onAdvance }) {
                   <span className="font-semibold text-gray-800 dark:text-gray-200">
                     ×{item.quantity}
                   </span>
-                  {' '}{item.name}
+                  {' '}{item.food?.name || item.name || 'Item'}
                 </span>
                 <span className="shrink-0 tabular-nums">
-                  Rs. {item.subtotal.toLocaleString('en-LK')}
+                  Rs. {Number(item.subtotal).toLocaleString('en-LK')}
                 </span>
               </li>
             ))}
-            {order.discountAmount > 0 && (
+            {Number(order.discount || 0) > 0 && (
               <li className="flex items-center justify-between text-xs
                              text-green-600 dark:text-green-400
                              border-t border-amber-100 dark:border-gray-700 pt-1.5 mt-0.5">
                 <span>Discount</span>
                 <span className="tabular-nums">
-                  − Rs. {order.discountAmount.toLocaleString('en-LK')}
+                  − Rs. {Number(order.discount).toLocaleString('en-LK')}
                 </span>
               </li>
             )}
@@ -307,21 +308,25 @@ function KanbanColumn({ col, allOrders, onAdvance }) {
 // PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LiveOrdersPage() {
-  const [orders, setOrders] = useState(
-    MOCK_ORDERS.filter(o => o.status !== 'COMPLETED')
-  )
+  const { orders, fetchLiveOrders, advanceOrder, updateOrderStatus, addNewOrder } = useLiveOrdersStore()
   const [search,     setSearch]     = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
 
-  // ── Advance order status ──────────────────────────────────────────────────
-  function handleAdvance(orderId, nextStatus) {
-    if (nextStatus === 'COMPLETED') {
-      setOrders(prev => prev.filter(o => o.id !== orderId))
-    } else {
-      setOrders(prev =>
-        prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o)
-      )
-    }
+  // ── Fetch on mount ────────────────────────────────────────────────────────
+  useEffect(() => { fetchLiveOrders() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Socket.io listener ────────────────────────────────────────────────────
+  useEffect(() => {
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+    const socket = io(baseUrl)
+    socket.on('newOrder', addNewOrder)
+    socket.on('orderStatusChanged', updateOrderStatus)
+    return () => { socket.disconnect() }
+  }, [addNewOrder, updateOrderStatus])
+
+  // ── Advance order status via API ──────────────────────────────────────────
+  async function handleAdvance(orderId, nextStatus) {
+    await advanceOrder(orderId, nextStatus)
   }
 
   // ── Filtered orders (search + type) ──────────────────────────────────────
@@ -329,8 +334,8 @@ export default function LiveOrdersPage() {
     const q = search.trim().toLowerCase()
     return orders.filter(o => {
       const matchSearch = !q ||
-        o.orderNumber.toLowerCase().includes(q) ||
-        o.customerName.toLowerCase().includes(q)
+      (o.invoiceNumber || '').toLowerCase().includes(q) ||
+      (o.customerName || '').toLowerCase().includes(q)
       const matchType = typeFilter === 'all' || o.orderType === typeFilter
       return matchSearch && matchType
     })

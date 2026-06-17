@@ -130,7 +130,12 @@ export default function ReceiptModal({ isOpen, onClose, order }) {
             {/* ── Payment ── */}
             <div className="flex flex-col gap-0.5 text-[11px] text-black">
               <div className="flex justify-between"><span className="font-bold">Payment</span><span>Cash</span></div>
-              <div className="flex justify-between"><span className="font-bold">Status</span><span className="text-black">✓ PAID</span></div>
+              <div className="flex justify-between">
+                <span className="font-bold">Status</span>
+                <span className={order.paymentStatus === 'PAID' ? 'text-black' : order.paymentStatus === 'PARTIAL' ? 'text-black' : 'text-black'}>
+                  {order.paymentStatus === 'PAID' ? '✓ PAID' : order.paymentStatus === 'PARTIAL' ? `PARTIAL (Rs. ${Number(order.amountPaid || 0).toLocaleString('en-LK')})` : 'NOT PAID'}
+                </span>
+              </div>
             </div>
 
             <p className="border-t border-dashed border-black/20 my-1" />

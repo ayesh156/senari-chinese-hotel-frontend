@@ -13,12 +13,10 @@ import { useFoodStore } from '../../utils/foodStore'
 import { useCartStore } from '../../utils/cartStore'
 import { useSettingsStore } from '../../utils/settingsStore'
 
-// Strip trailing /api if present — static files are at server root, not /api
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
 const ITEMS_PER_PAGE = 15
 const fmt = (n) => Number(n).toLocaleString('en-LK')
 
-// ── Bulletproof image URL ─────────────────────────────────────────────────────
 const getFullImageUrl = (path) => {
   if (!path) return null
   if (path.startsWith('http')) return path
@@ -59,55 +57,13 @@ function Toast({ message, type = 'success', onDone }) {
 function MenuCardImage({ image }) {
   const [imgError, setImgError] = useState(false)
   const hasImage = !!image && !imgError
-
   if (!hasImage) {
-    return (
-      <div className="w-full aspect-[4/3] bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-        <Utensils size={32} className="text-gray-400" />
-      </div>
-    )
+    return <div className="w-full aspect-[4/3] bg-gray-200 dark:bg-gray-800 flex items-center justify-center"><Utensils size={32} className="text-gray-400" /></div>
   }
   return (
     <div className="w-full aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-800">
       <img src={getFullImageUrl(image)} alt="" onError={() => setImgError(true)}
         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
-    </div>
-  )
-}
-
-// ── Horizontal Category Pills ─────────────────────────────────────────────────
-function CategoryBar({ categories, selected, onSelect }) {
-  const allCategories = ['All', ...categories]
-  return (
-    <div className="flex gap-1.5 overflow-x-auto px-1 py-2 shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {allCategories.map((cat) => {
-        const isActive = selected === cat
-        return (
-          <button key={cat} onClick={() => onSelect(cat)}
-            className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-150 active:scale-95
-              ${isActive ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
-            {cat}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── Quick Search Bar (without customer selector) ──────────────────────────────
-function QuickSearchBar({ searchQuery, onSearchChange, categoryFilter, onCategoryFilter, searchRef, categoryFilterOptions }) {
-  return (
-    <div className="shrink-0 flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-      <div className="flex-1 relative min-w-0">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
-        <input ref={searchRef} type="text" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search foods…"
-          className="w-full pl-8 pr-8 py-2 rounded-xl text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-400/20 transition-all" />
-        {searchQuery && <button onClick={() => onSearchChange('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"><X size={13} /></button>}
-      </div>
-      <div className="shrink-0 w-36 hidden sm:block">
-        <SearchableSelect options={categoryFilterOptions} value={categoryFilter} onChange={onCategoryFilter} placeholder="Category" clearable triggerClassName="py-2 text-xs rounded-xl" />
-      </div>
     </div>
   )
 }
@@ -135,12 +91,8 @@ function CartRow({ item, onIncrease, onDecrease, onRemove }) {
     <li className="group flex items-center gap-2.5 py-2.5 border-b border-gray-100 dark:border-gray-800/70 last:border-0">
       <div className="w-10 h-10 rounded-lg bg-gray-200 dark:bg-gray-700 shrink-0 flex items-center justify-center">
         {item.image ? (
-          <img src={getFullImageUrl(item.image)} alt=""
-            onError={(e) => { e.target.style.display = 'none' }}
-            className="w-full h-full object-cover rounded-lg" />
-        ) : (
-          <Utensils size={14} className="text-gray-400" />
-        )}
+          <img src={getFullImageUrl(item.image)} alt="" onError={(e) => { e.target.style.display = 'none' }} className="w-full h-full object-cover rounded-lg" />
+        ) : <Utensils size={14} className="text-gray-400" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 truncate leading-tight">{item.name}</p>
@@ -161,7 +113,7 @@ function CartRow({ item, onIncrease, onDecrease, onRemove }) {
   )
 }
 
-// ── Cart Panel (desktop right sidebar with customer + order details) ──────────
+// ── Cart Panel ────────────────────────────────────────────────────────────────
 function CartPanel({ cartItems, onIncrease, onDecrease, onRemove, onClear, onPay, isPaying,
   orderType, onOrderType, selectedCustomer, onCustomerChange,
   discount, discountType, onDiscount, onDiscountType, discountInputRef,
@@ -171,10 +123,7 @@ function CartPanel({ cartItems, onIncrease, onDecrease, onRemove, onClear, onPay
   const count = cartItems.reduce((s, i) => s + i.quantity, 0)
   const rawDiscount = parseFloat(discount) || 0
   const discountAmt = discountType === '%' ? Math.min(subtotal, Math.round(subtotal * rawDiscount / 100)) : Math.min(subtotal, rawDiscount)
-  const afterDiscount = subtotal - discountAmt
-  const taxAmt = taxRate > 0 ? Math.round(afterDiscount * taxRate / 100) : 0
-  const serviceAmt = serviceCharge > 0 ? Math.round(afterDiscount * serviceCharge / 100) : 0
-  const total = Math.max(0, afterDiscount + taxAmt + serviceAmt)
+  const total = Math.max(0, subtotal - discountAmt)
   const givenCash = parseFloat(customerCash) || 0
   const change = givenCash - total
   const hasChange = givenCash > 0 && change >= 0
@@ -190,7 +139,6 @@ function CartPanel({ cartItems, onIncrease, onDecrease, onRemove, onClear, onPay
         </div>
         {cartItems.length > 0 && <button onClick={onClear} className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors">Clear</button>}
       </div>
-
       <div className="flex-1 overflow-y-auto px-4 min-h-0">
         {cartItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-8">
@@ -201,22 +149,13 @@ function CartPanel({ cartItems, onIncrease, onDecrease, onRemove, onClear, onPay
           <ul className="pt-1 pb-2">{cartItems.map((item) => <CartRow key={item.id} item={item} onIncrease={() => onIncrease(item.id)} onDecrease={() => onDecrease(item.id)} onRemove={() => onRemove(item.id)} />)}</ul>
         )}
       </div>
-
       <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 pt-3 pb-4 space-y-3">
         <div className="space-y-2">
-          {/* Customer selector moved inside cart panel */}
           <div className="w-full">
-            <SearchableSelect
-              options={CUSTOMER_OPTIONS}
-              value={selectedCustomer}
-              onChange={onCustomerChange}
-              placeholder="Customer"
-              searchPlaceholder="Search customer…"
-              clearable
-              triggerClassName="py-2 text-xs rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            />
+            <SearchableSelect options={CUSTOMER_OPTIONS} value={selectedCustomer} onChange={onCustomerChange}
+              placeholder="Customer" searchPlaceholder="Search customer…" clearable
+              triggerClassName="py-2 text-xs rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100" />
           </div>
-
           <div className="flex gap-1 p-0.5 bg-gray-100 dark:bg-gray-800 rounded-xl">
             {['Dine-in', 'Takeaway'].map((t) => (
               <button key={t} onClick={() => onOrderType(t)}
@@ -241,17 +180,13 @@ function CartPanel({ cartItems, onIncrease, onDecrease, onRemove, onClear, onPay
             </div>
           )}
         </div>
-
         <div className="space-y-1">
           <div className="flex justify-between"><span className="text-xs text-gray-400">Subtotal</span><span className="text-xs font-semibold text-gray-600">Rs. {fmt(subtotal)}</span></div>
           {discountAmt > 0 && <div className="flex justify-between"><span className="text-xs font-medium text-emerald-600">Discount</span><span className="text-xs font-semibold text-emerald-600">− Rs. {fmt(discountAmt)}</span></div>}
-          {taxAmt > 0 && <div className="flex justify-between"><span className="text-xs text-gray-400">Tax ({taxRate}%)</span><span className="text-xs font-semibold text-gray-600">+ Rs. {fmt(taxAmt)}</span></div>}
-          {serviceAmt > 0 && <div className="flex justify-between"><span className="text-xs text-gray-400">Service ({serviceCharge}%)</span><span className="text-xs font-semibold text-gray-600">+ Rs. {fmt(serviceAmt)}</span></div>}
           <div className="border-t border-dashed border-gray-200 pt-2">
             <div className="flex justify-between"><span className="text-sm font-bold text-gray-900">Total</span><span className="text-xl font-extrabold text-amber-600 tabular-nums">Rs. {fmt(total)}</span></div>
           </div>
         </div>
-
         <button onClick={onPay} disabled={cartItems.length === 0 || isPaying}
           className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-600 hover:to-amber-500 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-[15px] py-4 rounded-2xl shadow-lg shadow-amber-500/40 transition-all">
           {isPaying ? (
@@ -272,22 +207,18 @@ function MobileCartDrawer({ open, onClose, ...cartProps }) {
       <div aria-hidden="true" onClick={onClose} className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
       <div role="dialog" className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl transition-transform duration-300 ${open ? 'translate-y-0' : 'translate-y-full'} max-h-[85vh]`}>
         <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" /></div>
-        <div className="flex items-center justify-between px-5 py-2 shrink-0">
-          <h2 className="font-bold text-gray-900 text-lg">Order Ticket</h2>
-          <button onClick={onClose} className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"><X size={20} /></button>
-        </div>
+        <div className="flex items-center justify-between px-5 py-2 shrink-0"><h2 className="font-bold text-gray-900 text-lg">Order Ticket</h2><button onClick={onClose} className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"><X size={20} /></button></div>
         <div className="flex-1 overflow-hidden"><CartPanel {...cartProps} onPay={() => { cartProps.onPay(); onClose() }} /></div>
       </div>
     </>
   )
 }
 
-// ── Main Page (wrapped in POSLayout) ──────────────────────────────────────────
+// ── Main Page ──────────────────────────────────────────────────────────────────
 export default function QuickPOSPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { defaultOrderType, maxDiscountPercent } = useSettingsStore()
-
   const { foods, fetchAll } = useFoodStore()
   useEffect(() => { fetchAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -314,7 +245,8 @@ export default function QuickPOSPage() {
   const cartCustomerCash = useCartStore(s => s.customerCash)
   const cartIsPaying = useCartStore(s => s.isPaying)
   const { addToCart, increaseQuantity, decreaseQuantity, removeFromCart, clearCart,
-    setOrderType, setDiscount, setDiscountType, setCustomerCash, setCustomerName, submitOrder } = useCartStore()
+    setOrderType, setDiscount, setDiscountType, setCustomerCash, setCustomerName,
+    hydrateFromOrder, submitOrder, updateOrder } = useCartStore()
 
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
@@ -324,6 +256,7 @@ export default function QuickPOSPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [completedOrder, setCompletedOrder] = useState(null)
+  const [editOrderDetails, setEditOrderDetails] = useState(null)
 
   const discountInputRef = useRef(null)
   const customerCashInputRef = useRef(null)
@@ -357,6 +290,29 @@ export default function QuickPOSPage() {
     return [...items].sort((a, b) => (b.id || 0) - (a.id || 0))
   }, [foods, selectedCategory, categoryFilter, searchQuery])
 
+  // ── Edit mode hydration ──────────────────────────────────────────────────
+  const [editId, setEditId] = useState(null)
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const eid = params.get('editId')
+    if (eid) {
+      setEditId(eid)
+      setIsUpdating(true)
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      fetch(`${baseUrl}/orders/${eid}`)
+        .then(r => r.json())
+        .then(json => {
+          if (json.success && json.data) {
+            setEditOrderDetails(json.data)
+            hydrateFromOrder(json.data)
+          }
+        })
+        .catch(err => console.error('[QuickPOS] Edit fetch error:', err))
+    }
+  }, [location.search, hydrateFromOrder])
+
   useEffect(() => { setCurrentPage(1) }, [selectedCategory, categoryFilter, searchQuery])
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE))
@@ -367,26 +323,37 @@ export default function QuickPOSPage() {
   const handlePay = useCallback(async () => {
     if (cartItems.length === 0) return
     const invoiceNumber = isEditMode ? editInvoiceNum : nextInvoiceNumber()
-    // Use selectedCustomer instead of customerRef
     const customerName = selectedCustomer === 'walk-in'
       ? 'Walk-in Customer'
       : (CUSTOMER_OPTIONS.find(o => o.value === selectedCustomer)?.label || selectedCustomer)
     setCustomerName(customerName)
 
-    const result = await submitOrder({
-      orderType: cartOrderType,
-      invoiceNumber,
-      customerName,
-    })
+    let result
+    if (isUpdating) {
+      // Use PUT for edit mode — preserves invoice number
+      result = await updateOrder({
+        orderId: editId,
+        orderType: cartOrderType,
+        customerName,
+        amountPaid: cartCustomerCash,
+      })
+    } else {
+      result = await submitOrder({
+        orderType: cartOrderType,
+        invoiceNumber,
+        customerName,
+        amountPaid: cartCustomerCash,
+      })
+    }
 
     if (result) {
       setMobileCartOpen(false)
-      setCompletedOrder(result) // save for receipt preview
+      setCompletedOrder(result)
       if (isEditMode) setTimeout(() => navigate('/pos/invoices'), 1200)
     } else {
       showToast('Failed to submit order', 'error')
     }
-  }, [cartItems, cartOrderType, submitOrder, showToast, isEditMode, editInvoiceNum, navigate, selectedCustomer, setCustomerName])
+  }, [cartItems, cartOrderType, submitOrder, updateOrder, showToast, isEditMode, editInvoiceNum, navigate, selectedCustomer, setCustomerName, cartCustomerCash, isUpdating, editId])
   handlePayRef.current = handlePay
 
   useEffect(() => {
@@ -395,8 +362,8 @@ export default function QuickPOSPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const pageTitle = isEditMode ? `Edit ${editInvoiceNum}` : 'Quick Invoice'
-  const ctaLabel = isEditMode ? 'UPDATE' : 'PAY & PRINT'
+  const pageTitle = isUpdating ? 'Update Invoice' : (isEditMode ? `Edit ${editInvoiceNum}` : 'Quick Invoice')
+  const ctaLabel = isUpdating ? 'UPDATE INVOICE' : (isEditMode ? 'UPDATE' : 'PAY & PRINT')
 
   const cartProps = {
     cartItems, onIncrease: increaseQuantity, onDecrease: decreaseQuantity, onRemove: removeFromCart, onClear: clearCart, isPaying: cartIsPaying,
@@ -411,19 +378,35 @@ export default function QuickPOSPage() {
     <div className="flex flex-col h-full">
       {/* Title + mobile cart FAB */}
       <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <h1 className="text-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">{pageTitle}</h1>
+        {isUpdating && editOrderDetails ? (
+          <h1 className="text-xl font-bold flex items-center gap-3">
+            Update Invoice
+            <span className="bg-amber-500/20 text-amber-500 text-sm px-3 py-1 rounded-lg border border-amber-500/30 font-mono">{editOrderDetails.invoiceNumber}</span>
+          </h1>
+        ) : (
+          <h1 className="text-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">{pageTitle}</h1>
+        )}
         <button onClick={() => setMobileCartOpen(true)} className="md:hidden relative p-2 rounded-xl bg-amber-500 text-white shadow-md active:scale-95">
           <ShoppingCart size={20} />
           {cartCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{cartCount}</span>}
         </button>
       </div>
 
-      <QuickSearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} categoryFilter={categoryFilter}
-        onCategoryFilter={(val) => { setCategoryFilter(val); setSelectedCategory('All') }}
-        searchRef={searchRef}
-        categoryFilterOptions={categoryFilterOptions} />
-
-      <CategoryBar categories={categoryNames} selected={selectedCategory} onSelect={setSelectedCategory} />
+      {/* Inline search + category dropdown (replaces CategoryBar pills) */}
+      <div className="shrink-0 flex items-center gap-3 px-3 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex-1 relative min-w-0">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
+          <input ref={searchRef} type="text" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search foods…"
+            className="w-full pl-8 pr-8 py-2 rounded-xl text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-400/20 transition-all" />
+          {searchQuery && <button onClick={() => onSearchChange('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"><X size={13} /></button>}
+        </div>
+        <div className="shrink-0 w-44">
+          <SearchableSelect options={categoryFilterOptions} value={categoryFilter}
+            onChange={(val) => { setCategoryFilter(val); setSelectedCategory('All') }}
+            placeholder="All Categories" clearable triggerClassName="py-2 text-xs rounded-xl" />
+        </div>
+      </div>
 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -442,14 +425,11 @@ export default function QuickPOSPage() {
             </div>
           )}
         </div>
-
         <div className="hidden md:flex shrink-0"><CartPanel {...cartProps} /></div>
       </div>
 
       <MobileCartDrawer open={mobileCartOpen} onClose={() => setMobileCartOpen(false)} {...cartProps} />
       {toast && <Toast {...toast} onDone={dismissToast} />}
-      
-      {/* Receipt Preview Modal on successful payment */}
       <ReceiptModal isOpen={!!completedOrder} order={completedOrder} onClose={() => setCompletedOrder(null)} />
     </div>
   )

@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Search, Eye, Plus, Trash2, AlertTriangle,
+  Search, Eye, Plus, Trash2, AlertTriangle, Pencil,
   CheckCircle2, XCircle,
   SlidersHorizontal, ChevronDown, List, LayoutGrid,
 } from 'lucide-react'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import ModernPagination from '../../components/ui/ModernPagination'
 import ReceiptModal from '../../components/pos/ReceiptModal'
+import { io } from 'socket.io-client'
 import { useInvoiceStore } from '../../utils/invoiceStore'
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
@@ -79,17 +80,36 @@ function isInDateRange(iso, range) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PAYMENT BADGE
 // ─────────────────────────────────────────────────────────────────────────────
-function PaymentBadge({ status }) {
-  return status === 'PAID' ? (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
-                     bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
-      <CheckCircle2 size={11} /> Paid
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
-                     bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
-      <XCircle size={11} /> Unpaid
-    </span>
+function PaymentBadge({ status, amountPaid, total }) {
+  if (status === 'PAID') {
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
+                         bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+          <CheckCircle2 size={11} /> Paid
+        </span>
+        <span className="text-[10px] text-green-500 dark:text-green-400 tabular-nums">Rs. {Number(amountPaid || 0).toLocaleString('en-LK')}</span>
+      </div>
+    )
+  }
+  if (status === 'PARTIAL') {
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
+                         bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30">
+          <AlertTriangle size={11} /> Partial
+        </span>
+        <span className="text-[10px] text-amber-600 dark:text-amber-400 tabular-nums">Rs. {Number(amountPaid || 0).toLocaleString('en-LK')} / {Number(total || 0).toLocaleString('en-LK')}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
+                       bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+        <XCircle size={11} /> Unpaid
+      </span>
+    </div>
   )
 }
 
@@ -155,10 +175,19 @@ export default function InvoicesPage() {
   const navigate = useNavigate()
 
   // ── Invoice store ────────────────────────────────────────────────────────
-  const { orders, loading, fetchOrders, deleteOrder } = useInvoiceStore()
+  const { orders, loading, fetchOrders, deleteOrder, addInvoiceToList, updateInvoiceInList } = useInvoiceStore()
 
   // Fetch on mount
   useEffect(() => { fetchOrders() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Socket.io real-time listener ─────────────────────────────────────────
+  useEffect(() => {
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+    const socket = io(baseUrl)
+    socket.on('invoiceCreated', addInvoiceToList)
+    socket.on('invoiceUpdated', updateInvoiceInList)
+    return () => { socket.disconnect() }
+  }, [addInvoiceToList, updateInvoiceInList])
   const [search,              setSearch]              = useState('')
   const [dateFilter,          setDateFilter]          = useState('all')
   const [paymentFilter,       setPaymentFilter]       = useState('all')
@@ -447,10 +476,16 @@ export default function InvoicesPage() {
                             Rs. {Number(order.total || 0).toLocaleString('en-LK')}
                           </p>
                         </div>
-                        <PaymentBadge status={order.paymentStatus} />
+                        <PaymentBadge status={order.paymentStatus} amountPaid={order.amountPaid} total={order.total} />
                       </div>
                       {/* Actions */}
                       <div className="flex border-t border-gray-100 dark:border-gray-800 divide-x divide-gray-100 dark:divide-gray-800">
+                        <button onClick={() => navigate(`/pos/quick?editId=${order.id}`)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold
+                                     text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400
+                                     hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
+                          <Pencil size={13} /> Edit
+                        </button>
                         <button onClick={() => setActiveInvoice(order)}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold
                                      text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400
@@ -526,10 +561,18 @@ export default function InvoicesPage() {
                         Rs. {Number(order.total || 0).toLocaleString('en-LK')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <PaymentBadge status={order.paymentStatus} />
+                        <PaymentBadge status={order.paymentStatus} amountPaid={order.amountPaid} total={order.total} />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => navigate(`/pos/quick?editId=${order.id}`)}
+                            aria-label={`Edit invoice ${invNum(order.id)}`}
+                            title="Edit"
+                            className="p-2 rounded-xl transition-colors text-gray-400 dark:text-gray-500
+                                       hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10">
+                            <Pencil size={15} />
+                          </button>
                           <button
                             onClick={() => setActiveInvoice(order)}
                             aria-label={`View invoice ${invNum(order.id)}`}
