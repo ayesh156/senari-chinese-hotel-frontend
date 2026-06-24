@@ -1,31 +1,42 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { lazy, Suspense } from 'react';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import MainWebLayout    from '../layouts/MainWebLayout';
+import POSLayout        from '../layouts/POSLayout';
+import ProtectedRoute   from '../components/ui/ProtectedRoute';
+import LoadingSpinner   from '../components/ui/LoadingSpinner';
 
-import MainWebLayout    from '../layouts/MainWebLayout'
-import POSLayout        from '../layouts/POSLayout'
-import ProtectedRoute   from '../components/ui/ProtectedRoute'
+/**
+ * Suspense wrapper for lazy-loaded route elements.
+ * Ensures every code-split page has a loading fallback.
+ */
+function Lazy({ children }) {
+  return <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>;
+}
 
-import HomePage         from '../pages/web/HomePage'
-import MenuPage         from '../pages/web/MenuPage'
-import ProductViewPage  from '../pages/web/ProductViewPage'
-import AboutPage        from '../pages/web/AboutPage'
-import ContactPage      from '../pages/web/ContactPage'
-import CheckoutPage     from '../pages/web/CheckoutPage'
-import OrderSuccessPage from '../pages/web/OrderSuccessPage'
-import POSDashboardPage    from '../pages/pos/POSDashboardPage'
-import LiveOrdersPage      from '../pages/pos/LiveOrdersPage'
-import FoodsListPage       from '../pages/pos/FoodsListPage'
-import FoodFormPage        from '../pages/pos/FoodFormPage'
-import InvoicesPage        from '../pages/pos/InvoicesPage'
-import SettingsPage        from '../pages/pos/SettingsPage'
-import QuickPOSPage        from '../pages/pos/QuickPOSPage'
-import ReportsPage         from '../pages/pos/ReportsPage'
-import CustomersPage       from '../pages/pos/CustomersPage'
-import StaffLoginPage      from '../pages/pos/StaffLoginPage'
-import TableManagementPage from '../pages/pos/TableManagementPage'
-import InventoryPage          from '../pages/pos/InventoryPage'
-import MasterDataPage         from '../pages/pos/MasterDataPage'
-import SuppliersPage          from '../pages/pos/SuppliersPage'
-import PurchaseOrdersPage     from '../pages/pos/PurchaseOrdersPage'
+// ── Page-level code splitting via React.lazy() ────────────────────────────
+const HomePage         = lazy(() => import('../pages/web/HomePage'));
+const MenuPage         = lazy(() => import('../pages/web/MenuPage'));
+const ProductViewPage  = lazy(() => import('../pages/web/ProductViewPage'));
+const AboutPage        = lazy(() => import('../pages/web/AboutPage'));
+const ContactPage      = lazy(() => import('../pages/web/ContactPage'));
+const CheckoutPage     = lazy(() => import('../pages/web/CheckoutPage'));
+const OrderSuccessPage = lazy(() => import('../pages/web/OrderSuccessPage'));
+
+const POSDashboardPage    = lazy(() => import('../pages/pos/POSDashboardPage'));
+const LiveOrdersPage      = lazy(() => import('../pages/pos/LiveOrdersPage'));
+const FoodsListPage       = lazy(() => import('../pages/pos/FoodsListPage'));
+const FoodFormPage        = lazy(() => import('../pages/pos/FoodFormPage'));
+const InvoicesPage        = lazy(() => import('../pages/pos/InvoicesPage'));
+const QuickPOSPage        = lazy(() => import('../pages/pos/QuickPOSPage'));
+const InventoryPage       = lazy(() => import('../pages/pos/InventoryPage'));
+const SuppliersPage       = lazy(() => import('../pages/pos/SuppliersPage'));
+const MasterDataPage      = lazy(() => import('../pages/pos/MasterDataPage'));
+const ReportsPage         = lazy(() => import('../pages/pos/ReportsPage'));
+const CustomersPage       = lazy(() => import('../pages/pos/CustomersPage'));
+const PurchaseOrdersPage  = lazy(() => import('../pages/pos/PurchaseOrdersPage'));
+const TableManagementPage = lazy(() => import('../pages/pos/TableManagementPage'));
+const SettingsPage        = lazy(() => import('../pages/pos/SettingsPage'));
+const StaffLoginPage      = lazy(() => import('../pages/pos/StaffLoginPage'));
 
 function NotFound() {
   return (
@@ -35,7 +46,7 @@ function NotFound() {
       <p className="text-sm">The page you're looking for doesn't exist.</p>
       <a href="/" className="mt-2 text-amber-600 hover:underline text-sm font-medium">← Back to Home</a>
     </div>
-  )
+  );
 }
 
 const router = createBrowserRouter([
@@ -45,14 +56,14 @@ const router = createBrowserRouter([
     element: <MainWebLayout />,
     errorElement: <NotFound />,
     children: [
-      { index: true,           element: <HomePage /> },
-      { path: 'menu',          element: <MenuPage /> },
-      { path: 'menu/:id',      element: <ProductViewPage /> },
-      { path: 'about',         element: <AboutPage /> },
-      { path: 'contact',       element: <ContactPage /> },
+      { index: true,           element: <Lazy><HomePage /></Lazy> },
+      { path: 'menu',          element: <Lazy><MenuPage /></Lazy> },
+      { path: 'menu/:id',      element: <Lazy><ProductViewPage /></Lazy> },
+      { path: 'about',         element: <Lazy><AboutPage /></Lazy> },
+      { path: 'contact',       element: <Lazy><ContactPage /></Lazy> },
       { path: 'cart',          element: <div className="p-8 text-center text-gray-500 dark:text-gray-400">Cart — coming soon</div> },
-      { path: 'checkout',      element: <CheckoutPage /> },
-      { path: 'order-success', element: <OrderSuccessPage /> },
+      { path: 'checkout',      element: <Lazy><CheckoutPage /></Lazy> },
+      { path: 'order-success', element: <Lazy><OrderSuccessPage /></Lazy> },
     ],
   },
 
@@ -62,29 +73,29 @@ const router = createBrowserRouter([
     element: <ProtectedRoute><POSLayout /></ProtectedRoute>,
     children: [
       { index: true,            element: <Navigate to="dashboard" replace /> },
-      { path: 'dashboard',      element: <POSDashboardPage /> },
-      { path: 'orders',         element: <LiveOrdersPage /> },
-      { path: 'invoices',       element: <InvoicesPage /> },
-      { path: 'foods',          element: <FoodsListPage /> },
-      { path: 'foods/add',      element: <FoodFormPage /> },
-      { path: 'foods/edit/:id', element: <FoodFormPage /> },
-      { path: 'quick',          element: <QuickPOSPage /> },
-      { path: 'inventory',      element: <InventoryPage /> },
-      { path: 'master-data',    element: <MasterDataPage /> },
-      { path: 'reports',        element: <ReportsPage /> },
-      { path: 'customers',      element: <CustomersPage /> },
-      { path: 'suppliers',      element: <SuppliersPage /> },
-      { path: 'purchase-orders', element: <PurchaseOrdersPage /> },
-      { path: 'tables',         element: <TableManagementPage /> },
-      { path: 'settings',       element: <SettingsPage /> },
+      { path: 'dashboard',      element: <Lazy><POSDashboardPage /></Lazy> },
+      { path: 'orders',         element: <Lazy><LiveOrdersPage /></Lazy> },
+      { path: 'invoices',       element: <Lazy><InvoicesPage /></Lazy> },
+      { path: 'foods',          element: <Lazy><FoodsListPage /></Lazy> },
+      { path: 'foods/add',      element: <Lazy><FoodFormPage /></Lazy> },
+      { path: 'foods/edit/:id', element: <Lazy><FoodFormPage /></Lazy> },
+      { path: 'quick',          element: <Lazy><QuickPOSPage /></Lazy> },
+      { path: 'inventory',      element: <Lazy><InventoryPage /></Lazy> },
+      { path: 'suppliers',      element: <Lazy><SuppliersPage /></Lazy> },
+      { path: 'master-data',    element: <Lazy><MasterDataPage /></Lazy> },
+      { path: 'reports',        element: <Lazy><ReportsPage /></Lazy> },
+      { path: 'customers',      element: <Lazy><CustomersPage /></Lazy> },
+      { path: 'purchase-orders', element: <Lazy><PurchaseOrdersPage /></Lazy> },
+      { path: 'tables',         element: <Lazy><TableManagementPage /></Lazy> },
+      { path: 'settings',       element: <Lazy><SettingsPage /></Lazy> },
     ],
   },
 
   // ── POS Login (public) ────────────────────────────────────
   {
     path: '/pos/login',
-    element: <StaffLoginPage />,
+    element: <Lazy><StaffLoginPage /></Lazy>,
   },
-])
+]);
 
-export default router
+export default router;

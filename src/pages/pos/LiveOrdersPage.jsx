@@ -119,8 +119,13 @@ function OrderCard({ order, col, onAdvance }) {
           <div className="flex items-center gap-1.5 mt-1">
             <User size={11} className="text-gray-400 shrink-0" />
             <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
-              {order.customerName || 'Walk-in Customer'}
+              {order.customer?.name || order.customerName || 'Walk-in Customer'}
             </p>
+            {order.customer?.phone && (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums shrink-0">
+                {order.customer.phone}
+              </span>
+            )}
           </div>
         </div>
         <div className="text-right shrink-0">

@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { toast } from 'react-toastify'
 import {
   Search, X, Plus, Pencil, Trash2, Eye,
   Truck, AlertTriangle, CheckCircle2, Clock,
@@ -609,23 +610,6 @@ function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel
   )
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-function Toast({ message, onDone }) {
-  const [visible, setVisible] = useState(true)
-  setTimeout(() => { setVisible(false); setTimeout(onDone, 300) }, 3200)
-  return visible ? (
-    <div role="status" aria-live="polite"
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100]
-                 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl
-                 bg-green-600 text-white text-sm font-semibold
-                 animate-[slideUp_0.25s_ease-out]"
-      style={{ minWidth: '260px', maxWidth: '90vw' }}>
-      <CheckCircle2 size={18} className="shrink-0" />
-      <span>{message}</span>
-    </div>
-  ) : null
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function PurchaseOrdersPage() {
   const [orders, setOrders]           = useState(MOCK_PURCHASE_ORDERS)
@@ -638,7 +622,6 @@ export default function PurchaseOrdersPage() {
   const [showForm, setShowForm]       = useState(false)
   const [viewTarget, setViewTarget]   = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [toast, setToast]             = useState(null)
   const [viewMode, setViewMode]       = useState('table')
 
   // ── Auto-switch to grid on mobile (< 768px) ──────────────────────────────
@@ -649,8 +632,6 @@ export default function PurchaseOrdersPage() {
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
-
-  const showToast = useCallback(msg => setToast(msg), [])
 
   const nextId = useMemo(() => Math.max(...orders.map(o => o.id), 0) + 1, [orders])
   const nextPoNumber = `PO-${String(nextId).padStart(4, '0')}`
@@ -711,14 +692,14 @@ export default function PurchaseOrdersPage() {
 
     setShowForm(false)
     resetPage()
-    showToast(`${nextPoNumber} saved — inventory updated`)
+    toast.success(`${nextPoNumber} saved — inventory updated`)
   }
 
   function handleDelete(id) {
     setOrders(prev => prev.filter(o => o.id !== id))
     setDeleteTarget(null)
     resetPage()
-    showToast('Purchase order deleted')
+    toast.success('Purchase order deleted')
   }
 
   return (
@@ -1024,7 +1005,6 @@ export default function PurchaseOrdersPage() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
-      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   )
 }

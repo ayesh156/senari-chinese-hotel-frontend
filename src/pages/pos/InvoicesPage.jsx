@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Eye, Plus, Trash2, AlertTriangle, Pencil,
-  CheckCircle2, XCircle,
+  CheckCircle2, XCircle, X,
   SlidersHorizontal, ChevronDown, List, LayoutGrid,
 } from 'lucide-react'
 import SearchableSelect from '../../components/ui/SearchableSelect'
@@ -44,9 +44,19 @@ const PAYMENT_OPTIONS = [
 ]
 
 const TYPE_OPTIONS = [
-  { value: 'all',     label: 'All Types' },
-  { value: 'DINE_IN', label: 'Dine-in'  },
-  { value: 'PICKUP',  label: 'Pick-up'  },
+  { value: 'all',      label: 'All Types' },
+  { value: 'DINE_IN',  label: 'Dine-in'   },
+  { value: 'TAKEAWAY', label: 'Takeaway'  },
+  { value: 'DELIVERY', label: 'Delivery'  },
+]
+
+const STATUS_OPTIONS = [
+  { value: 'all',        label: 'All Statuses' },
+  { value: 'PENDING',    label: 'Pending'      },
+  { value: 'PREPARING',  label: 'Preparing'     },
+  { value: 'READY',      label: 'Ready'        },
+  { value: 'COMPLETED',  label: 'Completed'    },
+  { value: 'CANCELLED',  label: 'Cancelled'    },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,9 +87,44 @@ function isInDateRange(iso, range) {
   return true
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAYMENT BADGE
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Type badge styling map ─────────────────────────────────────────────
+function TypeBadge({ type }) {
+  const typeStyles = {
+    DINE_IN:   'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-300 dark:border-teal-500/30',
+    TAKEAWAY:  'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-300 dark:border-purple-500/30',
+    DELIVERY:  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-500/30',
+  }
+  const typeLabels = {
+    DINE_IN:   'Dine-in',
+    TAKEAWAY:  'Takeaway',
+    DELIVERY:  'Delivery',
+  }
+  const cls = typeStyles[type] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700'
+  const label = typeLabels[type] || type
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+      {label}
+    </span>
+  )
+}
+
+// ── STATUS BADGE ───────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const styles = {
+    PENDING:    'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-300 dark:border-orange-500/30',
+    PREPARING:  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-500/30',
+    READY:      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-300 dark:border-purple-500/30',
+    COMPLETED:  'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-500/30',
+    CANCELLED:  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-500/30',
+  }
+  const cls = styles[status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700'
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+      {status ? status.charAt(0) + status.slice(1).toLowerCase() : 'Unknown'}
+    </span>
+  )
+}
+
 function PaymentBadge({ status, amountPaid, total }) {
   if (status === 'PAID') {
     return (
@@ -192,6 +237,7 @@ export default function InvoicesPage() {
   const [dateFilter,          setDateFilter]          = useState('all')
   const [paymentFilter,       setPaymentFilter]       = useState('all')
   const [typeFilter,          setTypeFilter]          = useState('all')
+  const [statusFilter,        setStatusFilter]        = useState('all')
   const [page,                setPage]                = useState(1)
   const [activeInvoice,       setActiveInvoice]       = useState(null)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -226,10 +272,11 @@ export default function InvoicesPage() {
           getCustomerName(o).toLowerCase().includes(q)
         const matchDate    = isInDateRange(o.createdAt, dateFilter)
         const matchPayment = paymentFilter === 'all' || o.paymentStatus === paymentFilter
-        const matchType    = typeFilter === 'all' || o.orderType === typeFilter
-        return matchSearch && matchDate && matchPayment && matchType
+        const matchType    = typeFilter === 'all' || (o.type || o.orderType) === typeFilter
+        const matchStatus  = statusFilter === 'all' || (o.status || o.orderStatus) === statusFilter
+        return matchSearch && matchDate && matchPayment && matchType && matchStatus
       })
-  }, [orders, search, dateFilter, paymentFilter, typeFilter])
+  }, [orders, search, dateFilter, paymentFilter, typeFilter, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage   = Math.min(page, totalPages)
@@ -237,12 +284,12 @@ export default function InvoicesPage() {
 
   function resetPage() { setPage(1) }
 
-  const hasAdvancedFilters = dateFilter !== 'all' || typeFilter !== 'all'
-  const hasAnyFilter       = search || dateFilter !== 'all' || paymentFilter !== 'all' || typeFilter !== 'all'
+  const hasAdvancedFilters = dateFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'all'
+  const hasAnyFilter       = search || dateFilter !== 'all' || paymentFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'all'
 
   function clearAll() {
     setSearch(''); setDateFilter('all'); setPaymentFilter('all')
-    setTypeFilter('all'); resetPage()
+    setTypeFilter('all'); setStatusFilter('all'); resetPage()
   }
 
   // Summary stats
@@ -403,6 +450,16 @@ export default function InvoicesPage() {
                 searchPlaceholder="Search type…"
                 triggerClassName="w-36"
               />
+
+              {/* Advanced filter: Status */}
+              <SearchableSelect
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={v => { setStatusFilter(v); resetPage() }}
+                placeholder="All Statuses"
+                searchPlaceholder="Search status…"
+                triggerClassName="w-36"
+              />
             </div>
           </div>
 
@@ -451,13 +508,8 @@ export default function InvoicesPage() {
                               {order.invoiceNumber || invNum(order.id)}
                             </p>
                           </div>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full
-                                            text-[10px] font-semibold border shrink-0
-                                            ${order.orderType === 'DINE_IN'
-                                              ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
-                                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
-                                            }`}>
-                            {order.orderType === 'DINE_IN' ? 'Dine-in' : 'Pick-up'}
+                          <span className="shrink-0">
+                            <TypeBadge type={order.type || order.orderType} />
                           </span>
                         </div>
                         {/* Customer */}
@@ -512,7 +564,7 @@ export default function InvoicesPage() {
               <thead>
                 <tr className="border-b bg-gray-50 dark:bg-gray-800/60
                                border-gray-200 dark:border-gray-700/50">
-                  {['Invoice', 'Date & Time', 'Customer', 'Type', 'Total', 'Payment', 'Actions'].map(h => (
+                  {['Invoice', 'Date & Time', 'Customer', 'Type', 'Status', 'Total', 'Payment', 'Actions'].map(h => (
                     <th key={h}
                       className="px-4 py-3 text-left text-[11px] font-bold
                                  text-gray-400 dark:text-gray-500
@@ -525,7 +577,7 @@ export default function InvoicesPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {pageItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-14 text-center">
+                    <td colSpan={8} className="px-4 py-14 text-center">
                       <p className="text-sm font-medium text-gray-400 dark:text-gray-600">
                         No invoices match your filters
                       </p>
@@ -549,13 +601,10 @@ export default function InvoicesPage() {
                         <p className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{getCustomerName(order)}</p>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
-                                          ${order.orderType === 'DINE_IN'
-                                            ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
-                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
-                                          }`}>
-                          {order.orderType === 'DINE_IN' ? 'Dine-in' : 'Pick-up'}
-                        </span>
+                        <TypeBadge type={order.type || order.orderType} />
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <StatusBadge status={order.status || order.orderStatus} />
                       </td>
                       <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-gray-100">
                         Rs. {Number(order.total || 0).toLocaleString('en-LK')}

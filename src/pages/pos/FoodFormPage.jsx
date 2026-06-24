@@ -194,7 +194,7 @@ export default function FoodFormPage() {
   const isEditing = Boolean(id)
 
   const foodCategories = useMasterDataStore(s => s.foodCategories)
-  const { foods, loading, create, update, fetchAll: fetchFoods } = useFoodStore()
+  const { foods, loading, create, update } = useFoodStore()
 
   const categoryOptions = useMemo(() => {
     if (!Array.isArray(foodCategories)) return []
@@ -269,22 +269,22 @@ export default function FoodFormPage() {
       fd.append('isAvailable', form.available ? 'true' : 'false')
       fd.append('isNew', form.isNew ? 'true' : 'false')
 
-      // Only append image if user selected a new file
       if (form.imageFile) {
         fd.append('image', form.imageFile)
       }
 
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-      const url = isEditing ? `${baseUrl}/foods/${id}` : `${baseUrl}/foods`
-      const method = isEditing ? 'PUT' : 'POST'
+      let success;
+      if (isEditing) {
+        success = await update(id, fd);
+      } else {
+        success = await create(fd);
+      }
 
-      const res = await fetch(url, { method, body: fd })
-      const json = await res.json()
-
-      if (!json.success) throw new Error(json.error || 'Failed to save')
-
-      await fetchFoods()
-      navigate('/pos/foods')
+      if (success) {
+        navigate('/pos/foods');
+      } else {
+        setErrors({ form: 'Failed to save food item' });
+      }
     } catch (err) {
       console.error('[FoodFormPage] Save error:', err)
       setErrors({ form: err.message })

@@ -1,8 +1,10 @@
 /**
  * Zustand store for Invoice/Order management.
- * Fetches orders from GET /api/orders.
+ * Uses the API layer (orderApi) instead of raw fetch.
  */
-import { create } from 'zustand'
+import { toast } from 'react-toastify';
+import { create } from 'zustand';
+import { orderApi } from '../api/order.api';
 
 export const useInvoiceStore = create((set, get) => ({
   orders: [],
@@ -10,54 +12,50 @@ export const useInvoiceStore = create((set, get) => ({
   error: null,
 
   fetchOrders: async () => {
-    set({ loading: true, error: null })
+    set({ loading: true, error: null });
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-      const rawRes = await fetch(`${baseUrl}/orders`)
-      const jsonRes = await rawRes.json()
-
+      const jsonRes = await orderApi.getAll();
       const ordersArray = Array.isArray(jsonRes.data)
         ? jsonRes.data
-        : (Array.isArray(jsonRes) ? jsonRes : [])
-
-      set({ orders: ordersArray, loading: false, error: null })
-      console.log(`[invoiceStore] fetchOrders → ${ordersArray.length} orders`)
+        : (Array.isArray(jsonRes) ? jsonRes : []);
+      set({ orders: ordersArray, loading: false, error: null });
+      console.log(`[invoiceStore] fetchOrders → ${ordersArray.length} orders`);
     } catch (e) {
-      console.error('[invoiceStore] fetchOrders ERROR:', e.message)
-      set({ error: e.message, loading: false })
+      console.error('[invoiceStore] fetchOrders ERROR:', e.message);
+      set({ error: e.message, loading: false });
     }
   },
 
-  // Real-time: prepend a new invoice to the list
   addInvoiceToList: (invoice) => {
     set((state) => {
-      // Don't add duplicates
-      if (state.orders.find(o => o.id === invoice.id)) return state
-      return { orders: [invoice, ...state.orders] }
-    })
+      if (state.orders.find(o => o.id === invoice.id)) return state;
+      return { orders: [invoice, ...state.orders] };
+    });
   },
 
-  // Real-time: move updated invoice to the top of the list
   updateInvoiceInList: (invoice) => {
     set((state) => {
-      const filtered = state.orders.filter(o => o.id !== invoice.id)
-      return { orders: [invoice, ...filtered] }
-    })
+      const filtered = state.orders.filter(o => o.id !== invoice.id);
+      return { orders: [invoice, ...filtered] };
+    });
   },
 
   deleteOrder: async (id) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-      const res = await fetch(`${baseUrl}/orders/${id}`, { method: 'DELETE' })
-      const json = await res.json()
+      const json = await orderApi.remove(id);
       if (json.success) {
-        await get().fetchOrders()
-        return true
+        await get().fetchOrders();
+        toast.success('Invoice deleted successfully');
+        return true;
       }
-      return false
+      const errMsg = json.error || 'Failed to delete invoice';
+      toast.error(errMsg);
+      return false;
     } catch (e) {
-      console.error('[invoiceStore] deleteOrder ERROR:', e.message)
-      return false
+      const msg = e?.response?.data?.message || e.message || 'Failed to delete invoice';
+      toast.error(msg);
+      console.error('[invoiceStore] deleteOrder ERROR:', e.message);
+      return false;
     }
   },
-}))
+}));
