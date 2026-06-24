@@ -6,9 +6,9 @@ import {
   ShoppingCart, Package, ChevronDown, ChevronUp,
   Banknote, FileText, TrendingUp, List, LayoutGrid,
 } from 'lucide-react'
-import { MOCK_PURCHASE_ORDERS, PO_STATUS, PO_STATUS_LABELS } from '../../utils/mockPurchaseOrders'
-import { MOCK_SUPPLIERS } from '../../utils/mockSuppliers'
-import { INVENTORY_ITEMS } from '../../utils/inventoryData'
+import { usePurchaseOrderStore, PO_STATUS, PO_STATUS_LABELS } from '../../utils/purchaseOrderStore'
+import { useSupplierStore } from '../../utils/supplierStore'
+import { useInventoryStore } from '../../utils/inventoryStore'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import ModernPagination from '../../components/ui/ModernPagination'
 
@@ -63,7 +63,7 @@ function StatusBadge({ status }) {
 
 // ── View Modal ────────────────────────────────────────────────────────────────
 function ViewModal({ po, onClose }) {
-  const balance = po.subtotal - po.paidAmount
+  const balance = Number(po.totalAmount) - Number(po.amountPaid)
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50
                     flex items-end sm:items-center justify-center p-0 sm:p-4"
@@ -81,7 +81,7 @@ function ViewModal({ po, onClose }) {
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-base font-bold text-white">{po.poNumber}</h2>
-              <p className="text-white/70 text-xs mt-0.5 truncate">{po.supplierName}</p>
+              <p className="text-white/70 text-xs mt-0.5 truncate">{po.supplier?.name}</p>
             </div>
             <StatusBadge status={po.paymentStatus} />
             <button onClick={onClose} aria-label="Close"
@@ -101,7 +101,7 @@ function ViewModal({ po, onClose }) {
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Supplier</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{po.supplierName}</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{po.supplier?.name}</span>
             </div>
           </div>
           {/* Items table */}
@@ -120,15 +120,15 @@ function ViewModal({ po, onClose }) {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {po.items.map((item, i) => (
                   <tr key={i} className="bg-white dark:bg-gray-900">
-                    <td className="px-3 py-2.5 font-medium text-gray-900 dark:text-white">{item.itemName}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-900 dark:text-white">{item.inventoryItem?.name || item.itemName}</td>
                     <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">
-                      {item.qty} {item.unit}
+                      {Number(item.quantity)} {item.inventoryItem?.unit?.abbreviation || item.inventoryItem?.unit?.name || item.inventoryItem?.unit || item.unit}
                     </td>
                     <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">
                       {fmtRs(item.unitPrice)}
                     </td>
                     <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white tabular-nums whitespace-nowrap">
-                      {fmtRs(item.total)}
+                      {fmtRs(item.subTotal)}
                     </td>
                   </tr>
                 ))}
@@ -138,12 +138,12 @@ function ViewModal({ po, onClose }) {
           {/* Totals */}
           <div className="flex flex-col gap-1.5 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Subtotal</span>
-              <span className="font-semibold text-gray-900 dark:text-white tabular-nums">{fmtRs(po.subtotal)}</span>
+              <span className="text-gray-500 dark:text-gray-400">Total</span>
+              <span className="font-semibold text-gray-900 dark:text-white tabular-nums">{fmtRs(po.totalAmount)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500 dark:text-gray-400">Paid</span>
-              <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums">{fmtRs(po.paidAmount)}</span>
+              <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums">{fmtRs(po.amountPaid)}</span>
             </div>
             {balance > 0 && (
               <div className="flex justify-between border-t border-dashed border-gray-200 dark:border-gray-700 pt-1.5">
@@ -190,12 +190,12 @@ function DeleteModal({ po, onConfirm, onCancel }) {
         </div>
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
-            This will permanently remove the purchase order record. Inventory quantities will not be reversed.
+            This will permanently remove the purchase order and reverse inventory stock changes.
           </p>
           <p className="text-sm font-semibold p-3 rounded-xl border
                         text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800/50
                         border-gray-200 dark:border-gray-700/50">
-            {po.poNumber} · {po.supplierName} · {fmtRs(po.subtotal)}
+            {po.poNumber} · {po.supplier?.name} · {fmtRs(po.totalAmount)}
           </p>
         </div>
         <div className="p-6 border-t border-gray-200 dark:border-gray-700/50 flex gap-3">
@@ -217,43 +217,58 @@ function DeleteModal({ po, onConfirm, onCancel }) {
   )
 }
 
-// ── PO Form Modal ─────────────────────────────────────────────────────────────
+// ── PO Form Modal (Create / Edit) ────────────────────────────────────────────
 // Step 1: Supplier + date + notes
 // Step 2: Add items (inventory items, qty, unit price)
-// Step 3: Review + payment status
-function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel }) {
+// Step 3: Review
+function POFormModal({ suppliers, inventoryItems, editTarget, onSave, onCancel }) {
+  const isEdit = Boolean(editTarget)
   const [step, setStep] = useState(1)
 
   // Step 1 state
-  const [supplierId, setSupplierId] = useState('')
-  const [notes, setNotes] = useState('')
+  const [supplierId, setSupplierId] = useState(isEdit ? String(editTarget.supplierId) : '')
+  const [notes, setNotes] = useState(isEdit ? (editTarget.notes || '') : '')
   const [step1Err, setStep1Err] = useState('')
 
   // Step 2 state — line items
-  const [lines, setLines] = useState([])
+  const [lines, setLines] = useState(isEdit
+    ? editTarget.items.map(item => {
+        const inv = item.inventoryItem || {}
+        return {
+          inventoryItemId: item.inventoryItemId || item.inventoryId,
+          itemName: inv.name || item.itemName || item.name || '',
+          qty: String(Number(item.quantity)),
+          unit: inv.unit?.abbreviation || inv.unit?.name || inv.unit || item.unit || '',
+          unitPrice: String(Number(item.unitPrice)),
+          total: Number(item.subTotal || item.total),
+        }
+      })
+    : []
+  )
+
+  const [amountPaid, setAmountPaid] = useState(isEdit ? String(Number(editTarget.amountPaid)) : '0')
+  const [additionalPayment, setAdditionalPayment] = useState('0')
   const [lineItemId, setLineItemId] = useState('')
   const [lineQty, setLineQty] = useState('')
   const [linePrice, setLinePrice] = useState('')
   const [lineErr, setLineErr] = useState('')
 
-  // Step 3 state
-  const [paidAmount, setPaidAmount] = useState('')
-  const [paymentStatus, setPaymentStatus] = useState(PO_STATUS.UNPAID)
-
   const supplierOptions = suppliers.map(s => ({ value: String(s.id), label: s.name }))
   const inventoryOptions = inventoryItems.map(i => ({
     value: String(i.id),
-    label: `${i.itemName} (${i.unit})`,
+    label: `${i.itemName || i.name} (${i.unit || ''})`,
   }))
 
   const subtotal = lines.reduce((s, l) => s + l.total, 0)
+  const previouslyPaid = isEdit ? Number(editTarget.amountPaid) : 0
+  const balanceDue = Math.max(0, subtotal - previouslyPaid)
   const selectedSupplier = suppliers.find(s => String(s.id) === supplierId)
 
   // Auto-fill unit price when inventory item is selected
   function handleLineItemChange(id) {
     setLineItemId(id)
     const item = inventoryItems.find(i => String(i.id) === id)
-    if (item) setLinePrice(String(item.unitPrice))
+    if (item) setLinePrice(String(Number(item.unitPrice)))
     setLineErr('')
   }
 
@@ -264,15 +279,15 @@ function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel
     if (!qty || qty <= 0) { setLineErr('Enter a valid quantity'); return }
     if (!price || price < 0) { setLineErr('Enter a valid unit price'); return }
     const item = inventoryItems.find(i => String(i.id) === lineItemId)
-    if (lines.find(l => l.inventoryItemId === item.id)) {
+    if (lines.find(l => l.inventoryItemId === Number(lineItemId))) {
       setLineErr('Item already added — edit the existing line'); return
     }
     setLines(prev => [...prev, {
       inventoryItemId: item.id,
-      itemName: item.itemName,
-      qty, unit: item.unit,
+      itemName: item.itemName || item.name,
+      qty, unit: item.unit || '',
       unitPrice: price,
-      total: Math.round(qty * price),
+      total: Math.round(qty * price * 100) / 100,
     }])
     setLineItemId(''); setLineQty(''); setLinePrice(''); setLineErr('')
   }
@@ -285,31 +300,37 @@ function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel
     setLines(prev => prev.map(l => {
       if (l.inventoryItemId !== id) return l
       const updated = { ...l, [field]: val }
-      updated.total = Math.round((parseFloat(updated.qty) || 0) * (parseFloat(updated.unitPrice) || 0))
+      updated.total = Math.round((parseFloat(updated.qty) || 0) * (parseFloat(updated.unitPrice) || 0) * 100) / 100
       return updated
     }))
   }
 
-  // Derive payment status from paid amount
-  function handlePaidChange(val) {
-    setPaidAmount(val)
-    const paid = parseFloat(val) || 0
-    if (paid <= 0) setPaymentStatus(PO_STATUS.UNPAID)
-    else if (paid >= subtotal) setPaymentStatus(PO_STATUS.PAID)
-    else setPaymentStatus(PO_STATUS.PARTIAL)
-  }
-
   function handleSubmit() {
-    const paid = parseFloat(paidAmount) || 0
-    onSave({
-      supplierId: parseInt(supplierId, 10),
-      supplierName: selectedSupplier?.name ?? '',
-      items: lines,
-      subtotal,
-      paidAmount: Math.min(paid, subtotal),
-      paymentStatus,
-      notes: notes.trim(),
-    })
+    if (isEdit) {
+      const extraPayment = parseFloat(additionalPayment) || 0
+      onSave({
+        supplierId: parseInt(supplierId, 10),
+        items: lines.map(l => ({
+          inventoryItemId: l.inventoryItemId,
+          quantity: parseFloat(l.qty),
+          unitPrice: parseFloat(l.unitPrice),
+        })),
+        notes: notes.trim() || undefined,
+        additionalPayment: extraPayment > 0 ? extraPayment : undefined,
+      })
+    } else {
+      const paid = parseFloat(amountPaid) || 0
+      onSave({
+        supplierId: parseInt(supplierId, 10),
+        items: lines.map(l => ({
+          inventoryItemId: l.inventoryItemId,
+          quantity: parseFloat(l.qty),
+          unitPrice: parseFloat(l.unitPrice),
+        })),
+        notes: notes.trim() || undefined,
+        amountPaid: paid > 0 ? paid : undefined,
+      })
+    }
   }
 
   const inputCls = (err) =>
@@ -329,15 +350,22 @@ function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel
                       max-h-[92vh] flex flex-col overflow-hidden"
            onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="relative overflow-hidden shrink-0
-                        bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600">
+        <div className={`relative overflow-hidden shrink-0 ${
+          isEdit
+            ? 'bg-gradient-to-r from-emerald-600 via-teal-500 to-teal-600'
+            : 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600'
+        }`}>
           <div className="flex items-center gap-3 px-4 sm:px-5 py-4">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
               <ShoppingCart size={18} className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-bold text-white">New Purchase Order</h2>
-              <p className="text-white/70 text-xs mt-0.5">{nextPoNumber}</p>
+              <h2 className="text-base font-bold text-white">
+                {isEdit ? `Edit — ${editTarget.poNumber}` : 'New Purchase Order'}
+              </h2>
+              <p className="text-white/70 text-xs mt-0.5">
+                {isEdit ? 'Update items, quantities, and supplier' : 'Auto-generated PO number'}
+              </p>
             </div>
             <button onClick={onCancel} aria-label="Close"
               className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30
@@ -490,9 +518,78 @@ function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel
             </div>
           )}
 
-          {/* ── Step 3: Review & Payment ── */}
+          {/* ── Step 3: Review ── */}
           {step === 3 && (
             <div className="flex flex-col gap-4">
+              {/* Payment for new POs */}
+              {!isEdit && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1.5">
+                    Initial Payment (Rs.) <span className="text-gray-400 font-normal normal-case">— leave 0 for UNPAID</span>
+                  </label>
+                  <div className="flex gap-2 items-center">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">Rs.</span>
+                      <input type="number" min="0" max={subtotal} step="1" value={amountPaid}
+                        onChange={e => setAmountPaid(e.target.value)}
+                        placeholder="0"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold
+                                   bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                                   text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                    </div>
+                    <button onClick={() => setAmountPaid(String(subtotal))}
+                      className="px-3 py-2.5 rounded-xl text-xs font-bold border
+                                 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400
+                                 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shrink-0">
+                      Pay Full
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment summary for editing existing POs */}
+              {isEdit && (
+                <div className="flex flex-col gap-2 px-4 py-3 rounded-xl border bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">New Total</span>
+                    <span className="font-bold text-gray-900 dark:text-white tabular-nums">{fmtRs(subtotal)}</span>
+                  </div>
+                  {previouslyPaid > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Already Paid</span>
+                      <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums">{fmtRs(previouslyPaid)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm border-t border-dashed border-gray-200 dark:border-gray-700 pt-2">
+                    <span className="font-bold text-red-600 dark:text-red-400">Balance Due</span>
+                    <span className="font-extrabold text-red-600 dark:text-red-400 tabular-nums">{fmtRs(balanceDue)}</span>
+                  </div>
+                  {balanceDue > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1.5">
+                        Additional Payment <span className="text-gray-400 font-normal normal-case">— pay off the balance</span>
+                      </label>
+                      <div className="flex gap-2 items-center">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">Rs.</span>
+                          <input type="number" min="0" max={balanceDue} step="1" value={additionalPayment}
+                            onChange={e => setAdditionalPayment(e.target.value)}
+                            placeholder="0"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold
+                                       bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                                       text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                        </div>
+                        <button onClick={() => setAdditionalPayment(String(balanceDue))}
+                          className="px-3 py-2.5 rounded-xl text-xs font-bold border
+                                     bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400
+                                     border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shrink-0">
+                          Pay Full
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Summary card */}
               <div className="p-4 rounded-xl border bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50">
                 <div className="flex items-center justify-between mb-3">
@@ -511,52 +608,6 @@ function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel
                   <span className="text-sm font-bold text-gray-900 dark:text-white">Total</span>
                   <span className="text-lg font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">{fmtRs(subtotal)}</span>
                 </div>
-              </div>
-
-              {/* Payment */}
-              <div>
-                <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1.5">
-                  Amount Paid Now (Rs.)
-                </label>
-                <div className="flex gap-2 items-center">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">Rs.</span>
-                    <input type="number" min="0" max={subtotal} step="1" value={paidAmount}
-                      onChange={e => handlePaidChange(e.target.value)}
-                      placeholder="0"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold
-                                 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
-                                 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
-                  </div>
-                  <button onClick={() => handlePaidChange(String(subtotal))}
-                    className="px-3 py-2.5 rounded-xl text-xs font-bold border
-                               bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400
-                               border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shrink-0">
-                    Pay Full
-                  </button>
-                </div>
-              </div>
-
-              {/* Payment status preview */}
-              <div className={`flex items-center justify-between px-4 py-3 rounded-xl border
-                              ${paymentStatus === PO_STATUS.PAID
-                                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                                : paymentStatus === PO_STATUS.PARTIAL
-                                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                              }`}>
-                <span className={`text-xs font-bold uppercase tracking-wide
-                                  ${paymentStatus === PO_STATUS.PAID ? 'text-green-700 dark:text-green-400'
-                                    : paymentStatus === PO_STATUS.PARTIAL ? 'text-amber-700 dark:text-amber-400'
-                                    : 'text-red-700 dark:text-red-400'}`}>
-                  {PO_STATUS_LABELS[paymentStatus]}
-                </span>
-                {paymentStatus !== PO_STATUS.PAID && (
-                  <span className={`text-sm font-extrabold tabular-nums
-                                    ${paymentStatus === PO_STATUS.PARTIAL ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>
-                    Balance: {fmtRs(subtotal - (parseFloat(paidAmount) || 0))}
-                  </span>
-                )}
               </div>
 
               {notes && (
@@ -595,7 +646,7 @@ function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
                          font-semibold text-sm text-white disabled:opacity-40
                          bg-gradient-to-r from-amber-500 to-orange-500 shadow-amber-500/20 shadow-md hover:opacity-90">
-              <CheckCircle2 size={15} /> Save Purchase Order
+              <CheckCircle2 size={15} /> {isEdit ? 'Update Purchase Order' : 'Save Purchase Order'}
             </button>
           )}
           <button onClick={onCancel}
@@ -612,17 +663,21 @@ function POFormModal({ suppliers, inventoryItems, nextPoNumber, onSave, onCancel
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function PurchaseOrdersPage() {
-  const [orders, setOrders]           = useState(MOCK_PURCHASE_ORDERS)
-  const [suppliers, setSuppliers]     = useState(MOCK_SUPPLIERS)
-  const [inventory, setInventory]     = useState(INVENTORY_ITEMS)
+  const { orders, loading, fetchAll, create, update, remove } = usePurchaseOrderStore()
+  const { suppliers, fetchAll: fetchSuppliers } = useSupplierStore()
+  const { items: inventory, fetchAll: fetchInventory } = useInventoryStore()
   const [search, setSearch]           = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [supplierFilter, setSupplierFilter] = useState('all')
   const [page, setPage]               = useState(1)
   const [showForm, setShowForm]       = useState(false)
+  const [editTarget, setEditTarget]   = useState(null)
   const [viewTarget, setViewTarget]   = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [viewMode, setViewMode]       = useState('table')
+
+  // ── Fetch data on mount ───────────────────────────────────────────────
+  useEffect(() => { fetchAll(); fetchSuppliers(); fetchInventory() }, [])
 
   // ── Auto-switch to grid on mobile (< 768px) ──────────────────────────────
   useEffect(() => {
@@ -633,73 +688,44 @@ export default function PurchaseOrdersPage() {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
-  const nextId = useMemo(() => Math.max(...orders.map(o => o.id), 0) + 1, [orders])
-  const nextPoNumber = `PO-${String(nextId).padStart(4, '0')}`
-
   function resetPage() { setPage(1) }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return orders.filter(o => {
+      const supplierName = o.supplier?.name || ''
       const matchSearch = !q ||
         o.poNumber.toLowerCase().includes(q) ||
-        o.supplierName.toLowerCase().includes(q) ||
-        o.items.some(i => i.itemName.toLowerCase().includes(q))
+        supplierName.toLowerCase().includes(q) ||
+        (o.items || []).some(i => (i.inventoryItem?.name || i.itemName || '').toLowerCase().includes(q))
       const matchStatus = statusFilter === 'all' || o.paymentStatus === statusFilter
       const matchSupplier = supplierFilter === 'all' || String(o.supplierId) === supplierFilter
       return matchSearch && matchStatus && matchSupplier
-    }).sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt))
+    }).sort((a, b) => new Date(b.receivedAt || b.createdAt) - new Date(a.receivedAt || a.createdAt))
   }, [orders, search, statusFilter, supplierFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage   = Math.min(page, totalPages)
   const pageItems  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
-  const totalSpend   = orders.reduce((s, o) => s + o.subtotal, 0)
-  const totalUnpaid  = orders.reduce((s, o) => s + (o.subtotal - o.paidAmount), 0)
+  const totalSpend   = orders.reduce((s, o) => s + Number(o.totalAmount), 0)
+  const totalUnpaid  = orders.reduce((s, o) => s + (Number(o.totalAmount) - Number(o.amountPaid)), 0)
   const unpaidCount  = orders.filter(o => o.paymentStatus !== PO_STATUS.PAID).length
   const hasFilter    = search || statusFilter !== 'all' || supplierFilter !== 'all'
 
-  function handleSave({ supplierId, supplierName, items, subtotal, paidAmount, paymentStatus, notes }) {
-    const now = new Date().toISOString()
-    const newPO = {
-      id: nextId,
-      poNumber: nextPoNumber,
-      supplierId, supplierName, items, subtotal, paidAmount, paymentStatus,
-      receivedAt: now, notes,
+  async function handleSave(data) {
+    if (editTarget) {
+      const result = await update(editTarget.id, data)
+      if (result.success) { setShowForm(false); setEditTarget(null); resetPage() }
+    } else {
+      const result = await create(data)
+      if (result.success) { setShowForm(false); resetPage() }
     }
-    setOrders(prev => [newPO, ...prev])
-
-    // Update supplier: totalPurchases + payableAmount
-    const balance = subtotal - paidAmount
-    setSuppliers(prev => prev.map(s =>
-      s.id === supplierId
-        ? { ...s, totalPurchases: s.totalPurchases + subtotal, payableAmount: s.payableAmount + balance }
-        : s
-    ))
-
-    // Update inventory: increase quantityInStock for each received item
-    setInventory(prev => {
-      const updated = [...prev]
-      items.forEach(line => {
-        const idx = updated.findIndex(i => i.id === line.inventoryItemId)
-        if (idx !== -1) {
-          updated[idx] = { ...updated[idx], quantityInStock: updated[idx].quantityInStock + line.qty }
-        }
-      })
-      return updated
-    })
-
-    setShowForm(false)
-    resetPage()
-    toast.success(`${nextPoNumber} saved — inventory updated`)
   }
 
-  function handleDelete(id) {
-    setOrders(prev => prev.filter(o => o.id !== id))
-    setDeleteTarget(null)
-    resetPage()
-    toast.success('Purchase order deleted')
+  async function handleDelete(id) {
+    const result = await remove(id)
+    if (result.success) { setDeleteTarget(null); resetPage() }
   }
 
   return (
@@ -711,6 +737,7 @@ export default function PurchaseOrdersPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Purchase Orders</h1>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
             {orders.length} orders · {unpaidCount} with outstanding balance
+            {loading && <span className="ml-2 text-amber-500">(loading…)</span>}
           </p>
         </div>
         <button onClick={() => setShowForm(true)}
@@ -826,7 +853,8 @@ export default function PurchaseOrdersPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
                 {pageItems.map(po => {
-                  const balance = po.subtotal - po.paidAmount
+                  const supplierName = po.supplier?.name || ''
+                  const balance = Number(po.totalAmount) - Number(po.amountPaid)
                   return (
                     <div key={po.id}
                       className="group flex flex-col rounded-2xl border overflow-hidden
@@ -849,7 +877,7 @@ export default function PurchaseOrdersPage() {
                           <div>
                             <p className="font-extrabold text-amber-500 text-sm leading-tight">{po.poNumber}</p>
                             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 tabular-nums">
-                              {formatDate(po.receivedAt)}
+                              {formatDate(po.receivedAt || po.createdAt)}
                             </p>
                           </div>
                           <StatusBadge status={po.paymentStatus} />
@@ -857,17 +885,17 @@ export default function PurchaseOrdersPage() {
                         {/* Supplier */}
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                            {po.supplierName.charAt(0)}
+                            {supplierName.charAt(0)}
                           </div>
                           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                            {po.supplierName}
+                            {supplierName}
                           </p>
                         </div>
                         {/* Stats */}
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="flex flex-col gap-0.5 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20">
                             <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Total</p>
-                            <p className="font-extrabold text-gray-900 dark:text-white tabular-nums">{fmtRs(po.subtotal)}</p>
+                            <p className="font-extrabold text-gray-900 dark:text-white tabular-nums">{fmtRs(po.totalAmount)}</p>
                           </div>
                           <div className={`flex flex-col gap-0.5 px-3 py-2 rounded-xl
                                           ${balance > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
@@ -876,13 +904,13 @@ export default function PurchaseOrdersPage() {
                             </p>
                             <p className={`font-extrabold tabular-nums
                                           ${balance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                              {balance > 0 ? fmtRs(balance) : fmtRs(po.paidAmount)}
+                              {balance > 0 ? fmtRs(balance) : fmtRs(po.amountPaid)}
                             </p>
                           </div>
                         </div>
                         {/* Items count */}
                         <p className="text-xs text-gray-400 dark:text-gray-500">
-                          {po.items.length} item{po.items.length !== 1 ? 's' : ''}
+                          {po.items?.length || 0} item{(po.items?.length || 0) !== 1 ? 's' : ''}
                           {po.notes ? ` · ${po.notes}` : ''}
                         </p>
                       </div>
@@ -893,6 +921,12 @@ export default function PurchaseOrdersPage() {
                                      text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400
                                      hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
                           <Eye size={13} /> View
+                        </button>
+                        <button onClick={() => { setEditTarget(po); setShowForm(true) }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold
+                                     text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400
+                                     hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
+                          <Pencil size={13} /> Edit
                         </button>
                         <button onClick={() => setDeleteTarget(po)}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold
@@ -928,51 +962,59 @@ export default function PurchaseOrdersPage() {
                       <p className="text-sm font-medium text-gray-400 dark:text-gray-600">No purchase orders match your filters</p>
                     </td>
                   </tr>
-                ) : pageItems.map(po => (
-                  <tr key={po.id}
-                    className="bg-white dark:bg-gray-900 hover:bg-amber-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <span className="font-bold text-gray-900 dark:text-white">{po.poNumber}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums">
-                      {formatDate(po.receivedAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                          {po.supplierName.charAt(0)}
+                ) : pageItems.map(po => {
+                  const supplierName = po.supplier?.name || ''
+                  const balance = Number(po.totalAmount) - Number(po.amountPaid)
+                  return (
+                    <tr key={po.id}
+                      className="bg-white dark:bg-gray-900 hover:bg-amber-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <span className="font-bold text-gray-900 dark:text-white">{po.poNumber}</span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums">
+                        {formatDate(po.receivedAt || po.createdAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                            {supplierName.charAt(0)}
+                          </div>
+                          <span className="font-medium text-gray-900 dark:text-white whitespace-nowrap">{supplierName}</span>
                         </div>
-                        <span className="font-medium text-gray-900 dark:text-white whitespace-nowrap">{po.supplierName}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 tabular-nums">
-                      {po.items.length} item{po.items.length !== 1 ? 's' : ''}
-                    </td>
-                    <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-white">
-                      {fmtRs(po.subtotal)}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums whitespace-nowrap">
-                      <span className={`font-semibold ${po.paidAmount >= po.subtotal ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {fmtRs(po.paidAmount)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <StatusBadge status={po.paymentStatus} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setViewTarget(po)} title="View"
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                          <Eye size={15} />
-                        </button>
-                        <button onClick={() => setDeleteTarget(po)} title="Delete"
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 tabular-nums">
+                        {po.items?.length || 0} item{(po.items?.length || 0) !== 1 ? 's' : ''}
+                      </td>
+                      <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-white">
+                        {fmtRs(po.totalAmount)}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums whitespace-nowrap">
+                        <span className={`font-semibold ${balance <= 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {fmtRs(po.amountPaid)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <StatusBadge status={po.paymentStatus} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setViewTarget(po)} title="View"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                            <Eye size={15} />
+                          </button>
+                          <button onClick={() => { setEditTarget(po); setShowForm(true) }} title="Edit"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                            <Pencil size={15} />
+                          </button>
+                          <button onClick={() => setDeleteTarget(po)} title="Delete"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -992,9 +1034,9 @@ export default function PurchaseOrdersPage() {
         <POFormModal
           suppliers={suppliers}
           inventoryItems={inventory}
-          nextPoNumber={nextPoNumber}
+          editTarget={editTarget}
           onSave={handleSave}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => { setShowForm(false); setEditTarget(null) }}
         />
       )}
       {viewTarget && <ViewModal po={viewTarget} onClose={() => setViewTarget(null)} />}

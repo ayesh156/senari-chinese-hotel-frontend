@@ -27,7 +27,7 @@ function mapApiItem(item) {
     itemName: item.name,
     category: item.category?.name || '',
     quantityInStock: Number(item.quantity),
-    unit: item.unit?.abbreviation || '',
+    unit: item.unit?.name || item.unit?.abbreviation || '',
     minAlertLevel: Number(item.minAlertLevel),
     unitPrice: Number(item.unitPrice),
     createdAt: item.createdAt,

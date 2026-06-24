@@ -11,6 +11,7 @@ import { unitApi } from '../api/unit.api';
 export const useMasterDataStore = create((set, get) => ({
   foodCategories: [],
   inventoryCategories: [],
+  supplierCategories: [],
   units: [],
   loading: false,
   error: null,
@@ -18,18 +19,70 @@ export const useMasterDataStore = create((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null });
     try {
-      const [foodJson, invJson, unitJson] = await Promise.all([
+      const [foodJson, invJson, supJson, unitJson] = await Promise.all([
         categoryApi.getAll('FOOD'),
         categoryApi.getAll('INVENTORY'),
+        categoryApi.getAll('SUPPLIER'),
         unitApi.getAll(),
       ]);
       const foodList = Array.isArray(foodJson.data) ? foodJson.data : (Array.isArray(foodJson) ? foodJson : []);
       const invList = Array.isArray(invJson.data) ? invJson.data : (Array.isArray(invJson) ? invJson : []);
+      const supList = Array.isArray(supJson.data) ? supJson.data : (Array.isArray(supJson) ? supJson : []);
       const unitList = Array.isArray(unitJson.data) ? unitJson.data : (Array.isArray(unitJson) ? unitJson : []);
-      set({ foodCategories: foodList, inventoryCategories: invList, units: unitList, loading: false, error: null });
+      set({ foodCategories: foodList, inventoryCategories: invList, supplierCategories: supList, units: unitList, loading: false, error: null });
     } catch (e) {
       console.error('[masterDataStore] fetchAll ERROR:', e.message);
       set({ error: e.message, loading: false });
+    }
+  },
+
+  fetchSupplierCategories: async () => {
+    try {
+      const json = await categoryApi.getAll('SUPPLIER');
+      const list = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+      set({ supplierCategories: list });
+      return list;
+    } catch (e) {
+      console.error('[masterDataStore] fetchSupplierCategories ERROR:', e.message);
+      return [];
+    }
+  },
+
+  addSupplierCategory: async (name) => {
+    try {
+      await categoryApi.create({ name, type: 'SUPPLIER' });
+      await get().fetchAll();
+      toast.success('Supplier category added');
+      return true;
+    } catch (e) {
+      toast.error(e?.response?.data?.message || e.message || 'Failed to add');
+      return false;
+    }
+  },
+
+  renameSupplierCategory: async (oldName, newName) => {
+    try {
+      const category = get().supplierCategories.find(c => c.name === oldName);
+      if (!category) return false;
+      await categoryApi.update(category.id, { name: newName });
+      await get().fetchAll();
+      toast.success('Supplier category renamed');
+      return true;
+    } catch (e) {
+      toast.error(e?.response?.data?.message || e.message || 'Failed to rename');
+      return false;
+    }
+  },
+
+  deleteSupplierCategory: async (name) => {
+    try {
+      const category = get().supplierCategories.find(c => c.name === name);
+      if (!category) return;
+      await categoryApi.remove(category.id);
+      await get().fetchAll();
+      toast.success('Supplier category deleted');
+    } catch (e) {
+      toast.error(e?.response?.data?.message || e.message || 'Failed to delete');
     }
   },
 

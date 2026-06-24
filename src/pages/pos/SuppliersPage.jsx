@@ -6,19 +6,17 @@ import {
 } from 'lucide-react'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import ModernPagination from '../../components/ui/ModernPagination'
+import { useMasterDataStore, buildSelectOptions } from '../../utils/masterDataStore'
 import { useSupplierStore } from '../../utils/supplierStore'
 import SupplierHistoryModal from '../../components/pos/SupplierHistoryModal'
 
 const PAGE_SIZE = 8
-const SUPPLIER_CATEGORIES = ['Groceries', 'Meat', 'Seafood', 'Vegetables', 'Spices', 'Dairy', 'Oils', 'Packaging']
 
 const PAYABLE_FILTER_OPTIONS = [
   { value: 'all',      label: 'All Suppliers'    },
   { value: 'payable',  label: 'With Payables'    },
   { value: 'settled',  label: 'Fully Settled'    },
 ]
-
-const CATEGORY_OPTIONS = SUPPLIER_CATEGORIES.map(c => ({ value: c, label: c }))
 
 const CAT_COLORS = {
   Vegetables: 'bg-green-500/10  text-green-600  dark:text-green-400  border-green-500/20',
@@ -36,13 +34,14 @@ function CategoryPill({ category }) {
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>{category}</span>
 }
 
-function SupplierFormModal({ initialData, onSave, onCancel }) {
+function SupplierFormModal({ initialData, categoryOptions, onSave, onCancel }) {
   const isEdit = Boolean(initialData?.id)
   const [name, setName] = useState(initialData?.name ?? '')
   const [phone, setPhone] = useState(initialData?.phone ?? '')
   const [email, setEmail] = useState(initialData?.email ?? '')
   const [address, setAddress] = useState(initialData?.address ?? '')
-  const [category, setCategory] = useState(initialData?.category ?? SUPPLIER_CATEGORIES[0])
+  const firstCat = categoryOptions?.[0]?.value ?? ''
+  const [category, setCategory] = useState(initialData?.category ?? firstCat)
   const [errors, setErrors] = useState({})
 
   function validate() {
@@ -89,7 +88,7 @@ function SupplierFormModal({ initialData, onSave, onCancel }) {
               </div>
               <div>
                 <FieldLabel>Category <span className="text-red-400">*</span></FieldLabel>
-                <SearchableSelect options={CATEGORY_OPTIONS} value={category} onChange={v => { setCategory(v); setErrors(p => ({ ...p, category: '' })) }} placeholder="Select…" searchPlaceholder="Search…" />
+                <SearchableSelect options={categoryOptions} value={category} onChange={v => { setCategory(v); setErrors(p => ({ ...p, category: '' })) }} placeholder="Select…" searchPlaceholder="Search…" />
                 {errors.category && <p className="text-xs text-red-500 mt-1">{errors.category}</p>}
               </div>
               <div>
@@ -171,6 +170,8 @@ function SettlePaymentModal({ supplier, onConfirm, onCancel }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function SuppliersPage() {
   const { suppliers, loading, fetchAll, create, update, remove, settle } = useSupplierStore()
+  const supplierCategories = useMasterDataStore(s => s.supplierCategories)
+  const fetchSupplierCategories = useMasterDataStore(s => s.fetchSupplierCategories)
   const [search, setSearch] = useState('')
   const [payableFilter, setPayableFilter] = useState('all')
   const [page, setPage] = useState(1)
@@ -180,7 +181,9 @@ export default function SuppliersPage() {
   const [historyTarget, setHistoryTarget] = useState(null)
   const [viewMode, setViewMode] = useState('table')
 
-  useEffect(() => { fetchAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const categoryOptions = useMemo(() => buildSelectOptions(supplierCategories), [supplierCategories])
+
+  useEffect(() => { fetchAll(); fetchSupplierCategories(); }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const mq = window.matchMedia('(max-width: 767px)'); const handler = (e) => setViewMode(e.matches ? 'grid' : 'table'); if (mq.matches) setViewMode('grid'); mq.addEventListener('change', handler); return () => mq.removeEventListener('change', handler) }, [])
 
   function resetPage() { setPage(1) }
@@ -341,7 +344,7 @@ export default function SuppliersPage() {
         {totalPages <= 1 && <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800"><p className="text-xs text-gray-400 dark:text-gray-600">{filtered.length} of {suppliers.length} suppliers</p></div>}
       </div>
 
-      {formTarget !== null && <SupplierFormModal initialData={formTarget?.id ? formTarget : null} onSave={handleSave} onCancel={() => setFormTarget(null)} />}
+      {formTarget !== null && <SupplierFormModal initialData={formTarget?.id ? formTarget : null} categoryOptions={categoryOptions} onSave={handleSave} onCancel={() => setFormTarget(null)} />}
       {deleteTarget && <DeleteModal supplier={deleteTarget} onConfirm={() => handleDelete(deleteTarget.id)} onCancel={() => setDeleteTarget(null)} />}
       {settleTarget && <SettlePaymentModal supplier={settleTarget} onConfirm={amount => handleSettle(settleTarget.id, amount)} onCancel={() => setSettleTarget(null)} />}
       {historyTarget && <SupplierHistoryModal supplier={historyTarget} type={historyTarget._historyType} onCancel={() => setHistoryTarget(null)} />}
