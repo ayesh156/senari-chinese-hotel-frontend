@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Clock, Flame, ShoppingCart, Sparkles } from 'lucide-react'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
 import { useCartStore } from '../../utils/store'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ export default function FoodCard({
         <div className="flex-1" />
 
         <p className="text-lg font-bold">
-          Rs. {Number(price).toLocaleString('en-LK')}
+          {fmtCurrencyDirect(price)}
         </p>
 
         {/* Add to Cart — e.preventDefault + e.stopPropagation prevent Link navigation */}

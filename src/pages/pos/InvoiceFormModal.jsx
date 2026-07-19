@@ -6,6 +6,8 @@ import {
   CreditCard, Banknote, CheckCircle2, XCircle,
   ReceiptText, Tag,
 } from 'lucide-react'
+import { useSettingsStore } from '../../utils/settingsStore';
+
 import { MENU_ITEMS } from '../../utils/menuData'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -272,7 +274,7 @@ function Step2({ cartItems, setCartItems, errors }) {
                   <p className="text-xs text-gray-400 dark:text-gray-500">{item.category}</p>
                 </div>
                 <span className="text-sm font-bold text-orange-500 tabular-nums shrink-0 ml-3">
-                  Rs. {item.price.toLocaleString('en-LK')}
+                  {fmtCurrencyDirect(item.price)}
                 </span>
               </button>
             ))}
@@ -302,7 +304,7 @@ function Step2({ cartItems, setCartItems, errors }) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{item.name}</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                  Rs. {item.unitPrice.toLocaleString('en-LK')} each
+                  {fmtCurrencyDirect(item.unitPrice)} each
                 </p>
               </div>
               {/* Qty stepper */}
@@ -326,7 +328,7 @@ function Step2({ cartItems, setCartItems, errors }) {
               </div>
               {/* Line total */}
               <span className="text-sm font-bold text-orange-500 tabular-nums w-24 text-right shrink-0">
-                Rs. {item.subtotal.toLocaleString('en-LK')}
+                {fmtCurrencyDirect(item.subtotal)}
               </span>
               {/* Remove */}
               <button type="button" onClick={() => removeItem(item.productId)}
@@ -345,7 +347,7 @@ function Step2({ cartItems, setCartItems, errors }) {
               Subtotal ({cartItems.reduce((s, i) => s + i.quantity, 0)} items)
             </span>
             <span className="text-sm font-extrabold text-orange-600 dark:text-orange-400 tabular-nums">
-              Rs. {subtotal.toLocaleString('en-LK')}
+              {fmtCurrencyDirect(subtotal)}
             </span>
           </div>
         </div>
@@ -408,7 +410,7 @@ function Step3({ details, cartItems, payment, setPayment }) {
                 {item.name} <span className="text-gray-400">×{item.quantity}</span>
               </span>
               <span className="font-semibold text-gray-800 dark:text-gray-200 tabular-nums">
-                Rs. {item.subtotal.toLocaleString('en-LK')}
+                {fmtCurrencyDirect(item.subtotal)}
               </span>
             </div>
           ))}
@@ -418,25 +420,25 @@ function Step3({ details, cartItems, payment, setPayment }) {
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/40 space-y-1.5 text-xs">
           <div className="flex justify-between text-gray-500 dark:text-gray-400">
             <span>Subtotal</span>
-            <span className="tabular-nums">Rs. {subtotal.toLocaleString('en-LK')}</span>
+            <span className="tabular-nums">{fmtCurrencyDirect(subtotal)}</span>
           </div>
           {discountAmt > 0 && (
             <div className="flex justify-between text-green-600 dark:text-green-400">
               <span>Discount</span>
-              <span className="tabular-nums">− Rs. {discountAmt.toLocaleString('en-LK')}</span>
+              <span className="tabular-nums">− {fmtCurrencyDirect(discountAmt)}</span>
             </div>
           )}
           <div className="flex justify-between text-sm font-extrabold
                           text-orange-600 dark:text-orange-400 pt-1.5
                           border-t border-dashed border-orange-200 dark:border-orange-800">
             <span>Grand Total</span>
-            <span className="tabular-nums">Rs. {grandTotal.toLocaleString('en-LK')}</span>
+            <span className="tabular-nums">{fmtCurrencyDirect(grandTotal)}</span>
           </div>
         </div>
       </div>
 
       {/* Discount input */}
-      <Field label="Discount (Rs.)" icon={Tag}>
+      <Field label="Discount ({currencySymbol})" icon={Tag}>
         <TextInput
           type="number"
           value={payment.discountAmount}
@@ -502,6 +504,8 @@ function Step3({ details, cartItems, payment, setPayment }) {
 //   onSave(order)— called with the final order object (create or update)
 // ─────────────────────────────────────────────────────────────────────────────
 export default function InvoiceFormModal({ onClose, onSave, nextId, initialOrder = null }) {
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
+
   const isEdit = Boolean(initialOrder)
 
   // ── Derive initial state from existing order when editing ─────────────────

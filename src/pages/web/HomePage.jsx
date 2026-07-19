@@ -4,6 +4,7 @@ import FoodCard from '../../components/ui/FoodCard'
 import AnimatedSection from '../../components/ui/AnimatedSection'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
 import { MENU_ITEMS } from '../../utils/menuData'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
 // ── Dummy data — first 4 items from shared menu data ─────────────────────────
 const POPULAR_ITEMS = MENU_ITEMS.slice(0, 4)
@@ -66,7 +67,7 @@ function HeroSection() {
               <Clock size={15} className="text-amber-500" /> 25 – 35 min delivery
             </span>
             <span className="flex items-center gap-1.5">
-              <Bike size={15} className="text-amber-500" /> Free delivery over Rs. 1,500
+              <Bike size={15} className="text-amber-500" /> Free delivery over Rss. 1,500
             </span>
           </div>
         </AnimatedSection>

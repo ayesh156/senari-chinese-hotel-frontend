@@ -4,6 +4,7 @@
  * Computes derived stats (totalOrders, totalSpent, dueAmount) from the backend response.
  */
 import { toast } from 'react-toastify';
+import { fmtCurrencyDirect } from './currency';
 import { create } from 'zustand';
 import { customerApi } from '../api/customer.api';
 
@@ -77,7 +78,7 @@ export const useCustomerStore = create((set, get) => ({
       const json = await customerApi.settle(id, amount);
       if (json.success) {
         await get().fetchAll();
-        toast.success(`Payment of Rs. ${Number(amount).toLocaleString('en-LK')} recorded`);
+        toast.success(`Payment of Rss. ${fmtCurrencyDirect(amount)} recorded`);
         return { success: true, data: json.data };
       }
       toast.error(json.error || 'Settlement failed');

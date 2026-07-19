@@ -6,6 +6,8 @@ import FoodCard from '../../components/ui/FoodCard'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
 import { useCartStore } from '../../utils/store'
 import { MENU_ITEMS } from '../../utils/menuData'
+import { fmtCurrencyDirect } from '../../utils/currency'
+
 
 // ── Stat Badge ────────────────────────────────────────────────────────────────
 function StatBadge({ icon: Icon, label, value, color = 'text-gray-500 dark:text-gray-400' }) {
@@ -205,7 +207,7 @@ export default function ProductViewPage() {
 
           {/* Price */}
           <p className="text-3xl font-bold text-amber-600">
-            Rs. {Number(item.price).toLocaleString('en-LK')}
+            {fmtCurrencyDirect(item.price)}
           </p>
 
           {/* Description */}
@@ -253,7 +255,7 @@ export default function ProductViewPage() {
                 Total
               </span>
               <span className="text-2xl font-extrabold text-gray-900 dark:text-gray-100">
-                Rs. {lineTotal.toLocaleString('en-LK')}
+                {fmtCurrencyDirect(lineTotal)}
               </span>
             </div>
           </div>
@@ -269,7 +271,7 @@ export default function ProductViewPage() {
                        transition-all duration-150"
           >
             <ShoppingCart size={20} />
-            Add {qty > 1 ? `${qty} items` : 'to Cart'} · Rs. {lineTotal.toLocaleString('en-LK')}
+            Add {qty > 1 ? `${qty} items` : 'to Cart'} · {fmtCurrencyDirect(lineTotal)}
           </button>
 
           <p className="text-xs text-center text-gray-400 dark:text-gray-600">

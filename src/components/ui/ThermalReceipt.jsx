@@ -25,8 +25,9 @@
  * if the popup is blocked).
  */
 
+import { fmtCurrencyDirect } from '../../utils/currency';
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const fmt = (n) => `Rs. ${Number(n).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
+const fmt = fmtCurrencyDirect
 
 /** Pad a string to `width` chars, aligning left or right */
 const pad = (str, width, align = 'left') => {

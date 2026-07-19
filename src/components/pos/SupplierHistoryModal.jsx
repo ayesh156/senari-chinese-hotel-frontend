@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { X, Loader2, AlertTriangle, Banknote, Bell } from 'lucide-react';
 import { supplierApi } from '../../api/supplier.api';
 import ModernPagination from '../ui/ModernPagination';
+import { fmtCurrencyDirect } from '../../utils/currency';
 
 const PER_PAGE = 8;
+const fmtCurrency = fmtCurrencyDirect;
 
 function fmtDateTime(iso) {
   const d = new Date(iso);
@@ -13,9 +15,6 @@ function fmtDateTime(iso) {
   };
 }
 
-function fmtCurrency(n) {
-  return `Rs. ${Number(n).toLocaleString('en-LK')}`;
-}
 
 export default function SupplierHistoryModal({ supplier, type = 'payments', onCancel }) {
   const [records, setRecords] = useState([]);

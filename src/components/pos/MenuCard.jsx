@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Plus, Utensils } from 'lucide-react';
+import { fmtCurrencyDirect } from '../../utils/currency';
+import { useSettingsStore } from '../../utils/settingsStore';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
 const fmt = (n) => Number(n).toLocaleString('en-LK');
@@ -32,7 +34,9 @@ function MenuCardImage({ image }) {
 }
 
 export default function MenuCard({ item, qty, onAdd }) {
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
   return (
+
     <button onClick={onAdd}
       className="group relative flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 text-left active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
       <MenuCardImage image={item.image} />
@@ -44,7 +48,7 @@ export default function MenuCard({ item, qty, onAdd }) {
       )}
       <div className="flex flex-col flex-1 p-3 gap-1">
         <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight line-clamp-2">{item.name}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-auto pt-1 font-bold">Rs. {fmt(item.price)}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-auto pt-1 font-bold">{currencySymbol} {fmt(item.price)}</p>
       </div>
       <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-md">
         <Plus size={14} />

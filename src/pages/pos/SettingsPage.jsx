@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Store, Clock3, SlidersHorizontal,
   Save, CheckCircle2, MessageSquare, Info, Copy, Check,
-  Percent,
+  Percent, Building2, ShieldAlert, FileText, RefreshCw,
 } from 'lucide-react'
 import { useTheme } from '../../utils/ThemeContext'
 import { useSettingsStore, DEFAULT_REMINDER_TEMPLATE } from '../../utils/settingsStore'
@@ -15,7 +15,10 @@ const TABS = [
   { id: 'billing',     label: 'Billing & POS',     icon: Percent           },
   { id: 'hours',       label: 'Business Hours',     icon: Clock3            },
   { id: 'preferences', label: 'Preferences',        icon: SlidersHorizontal },
-  { id: 'messaging',   label: 'Messaging',          icon: MessageSquare     },
+    { id: 'messaging',   label: 'Messaging',          icon: MessageSquare     },
+    { id: 'hotel-info',  label: 'Hotel Info',         icon: Building2         },
+    { id: 'inventory-rules', label: 'Inventory Rules',icon: ShieldAlert       },
+    { id: 'pdf-layouts', label: 'PDF Layouts',        icon: FileText          },
 ]
 
 const DAYS = [
@@ -176,6 +179,8 @@ function SaveButton({ onSave, saved }) {
 // TAB: GENERAL
 // ─────────────────────────────────────────────────────────────────────────────
 function GeneralTab() {
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
+
   const [form, setForm] = useState({
     name:    'Senari Chinese Hotel',
     phone:   '+94 76 280 1006',
@@ -223,6 +228,7 @@ function GeneralTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 function BillingPosTab() {
   const settings = useSettingsStore()
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
   const updateSettings = useSettingsStore(s => s.updateSettings)
   const [saved, setSaved] = useState(false)
 
@@ -320,7 +326,7 @@ function BillingPosTab() {
             <div className="flex flex-wrap gap-2">
               {[
                 { id: 'percent', label: 'Percentage (%)' },
-                { id: 'fixed',   label: 'Fixed (Rs.)' },
+                { id: 'fixed',   label: 'Fixed (' + currencySymbol + ')' },
               ].map(({ id, label }) => (
                 <button
                   key={id}
@@ -510,19 +516,31 @@ function BusinessHoursTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 function SystemPreferencesTab() {
   const { theme, toggleTheme } = useTheme()
+  const store = useSettingsStore()
+  const { updateSettings, saveSettingsToBackend } = store
   const [prefs, setPrefs] = useState({
-    autoAccept:  false,
-    orderSound:  true,
+    autoAccept:  store.autoAcceptOrders,
+    orderSound:  store.playOrderSound,
     emailAlerts: true,
-    compactView: false,
+    compactView: store.compactTableView,
   })
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const set = (key) => (val) => setPrefs(f => ({ ...f, [key]: val }))
 
-  function handleSave() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+  async function handleSave() {
+    setSaving(true)
+    // Persist all preference fields to the backend
+    updateSettings({
+      autoAcceptOrders: prefs.autoAccept,
+      playOrderSound:   prefs.orderSound,
+      compactTableView: prefs.compactView,
+    })
+    const ok = await saveSettingsToBackend()
+    setSaving(false)
+    setSaved(ok)
+    if (ok) setTimeout(() => setSaved(false), 2500)
   }
 
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -600,7 +618,7 @@ function SystemPreferencesTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 const PLACEHOLDERS = [
   { key: '{name}',      desc: 'Customer name'   },
-  { key: '{dueAmount}', desc: 'Due amount (Rs.)' },
+  { key: '{dueAmount}', desc: 'Due amount ({currencySymbol})' },
   { key: '{phone}',     desc: 'Customer phone'   },
   { key: '{shop}',      desc: 'Shop name'        },
 ]
@@ -751,6 +769,227 @@ function MessagingTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TAB: HOTEL INFO (backend-persisted)
+// ─────────────────────────────────────────────────────────────────────────────
+function HotelInfoTab() {
+  const store = useSettingsStore()
+  const { updateSettings, saveSettingsToBackend, backendLoading } = store
+  const [form, setForm] = useState({
+    hotelName: store.hotelName,
+    reportTagline: store.reportTagline,
+    confidentialityNotice: store.confidentialityNotice,
+    currencySymbol: store.currencySymbol,
+  })
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const set = (key) => (val) => setForm(f => ({ ...f, [key]: val }))
+
+  async function handleSave() {
+    setSaving(true)
+    updateSettings(form)
+    const ok = await saveSettingsToBackend()
+    setSaving(false)
+    setSaved(ok)
+    if (ok) setTimeout(() => setSaved(false), 2500)
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Section title="Hotel Profile" sub="Shown in PDF exports and report headers">
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Hotel Name"
+            value={form.hotelName}
+            onChange={set('hotelName')}
+            placeholder="e.g. Senari Chinese Hotel"
+            hint="Appears on all report PDF headers"
+          />
+          <Field
+            label="Report Tagline"
+            value={form.reportTagline}
+            onChange={set('reportTagline')}
+            placeholder="e.g. Business Intelligence & Performance Report"
+            hint="Subtitle line under hotel name in exported PDFs"
+          />
+          <TextareaField
+            label="Confidentiality Notice"
+            value={form.confidentialityNotice}
+            onChange={set('confidentialityNotice')}
+            placeholder="e.g. SENARI CHINESE HOTEL — Confidential"
+            rows={2}
+          />
+        </div>
+      </Section>
+
+      <Section title="Regional Preferences" sub="Currency formatting">
+        <div className="max-w-xs">
+          <Field
+            label="Currency Symbol"
+            value={form.currencySymbol}
+            onChange={set('currencySymbol')}
+            placeholder="e.g. Rs."
+            hint="Displayed on dashboards and invoices"
+          />
+        </div>
+      </Section>
+
+      <div className="flex items-center justify-end gap-3">
+        {saving && (
+          <span className="flex items-center gap-1.5 text-xs text-amber-500">
+            <RefreshCw size={12} className="animate-spin" /> Saving...
+          </span>
+        )}
+        <SaveButton onSave={handleSave} saved={saved} />
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: INVENTORY RULES (backend-persisted)
+// ─────────────────────────────────────────────────────────────────────────────
+function InventoryRulesTab() {
+  const store = useSettingsStore()
+  const { updateSettings, saveSettingsToBackend, backendLoading } = store
+  const [form, setForm] = useState({
+    lowStockThreshold: String(store.lowStockThreshold),
+  })
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const set = (key) => (val) => setForm(f => ({ ...f, [key]: val }))
+
+  async function handleSave() {
+    const threshold = parseInt(form.lowStockThreshold, 10)
+    if (Number.isNaN(threshold) || threshold < 0) return
+
+    setSaving(true)
+    updateSettings({ lowStockThreshold: threshold })
+    const ok = await saveSettingsToBackend()
+    setSaving(false)
+    setSaved(ok)
+    if (ok) setTimeout(() => setSaved(false), 2500)
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Section
+        title="Global Low Stock Alert Threshold"
+        sub="Applies across all inventory items for dashboard warning counts"
+      >
+        <div className="max-w-xs">
+          <NumberField
+            label="Alert when stock falls below (units)"
+            value={form.lowStockThreshold}
+            onChange={set('lowStockThreshold')}
+            suffix="units"
+            placeholder="10"
+            hint="Items at or below this level trigger a low-stock warning on the Dashboard"
+            min={0}
+          />
+        </div>
+        <div className="mt-4 p-3 rounded-xl bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+            <strong>Note:</strong> Changing this value will instantly recalculate the Dashboard's
+            live low-stock warning count. It also clears the dashboard cache so the next
+            poll cycle picks up the new threshold.
+          </p>
+        </div>
+      </Section>
+
+      <div className="flex items-center justify-end gap-3">
+        {saving && (
+          <span className="flex items-center gap-1.5 text-xs text-amber-500">
+            <RefreshCw size={12} className="animate-spin" /> Saving...
+          </span>
+        )}
+        <SaveButton onSave={handleSave} saved={saved} />
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: PDF LAYOUTS (backend-persisted)
+// ─────────────────────────────────────────────────────────────────────────────
+function PdfLayoutsTab() {
+  const store = useSettingsStore()
+  const { updateSettings, saveSettingsToBackend, backendLoading } = store
+  const [form, setForm] = useState({
+    pdfOrientation:         store.pdfOrientation,
+    showGenerationTimestamp: store.showGenerationTimestamp ?? true,
+  })
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const set = (key) => (val) => setForm(f => ({ ...f, [key]: val }))
+
+  async function handleSave() {
+    setSaving(true)
+    updateSettings({ pdfOrientation: form.pdfOrientation, showGenerationTimestamp: form.showGenerationTimestamp })
+    const ok = await saveSettingsToBackend()
+    setSaving(false)
+    setSaved(ok)
+    if (ok) setTimeout(() => setSaved(false), 2500)
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Section
+        title="PDF Export Orientation"
+        sub="Default page layout for exported report PDFs"
+      >
+        <div className="flex flex-wrap gap-3">
+          {[
+            { id: 'portrait', label: 'Portrait', desc: 'Tall (A4 default)' },
+            { id: 'landscape', label: 'Landscape', desc: 'Wide, more columns' },
+          ].map(({ id, label, desc }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => set('pdfOrientation')(id)}
+              className={`flex-1 min-w-[140px] px-4 py-3 rounded-xl text-sm font-semibold border
+                          transition-all min-h-[60px] text-left
+                          ${form.pdfOrientation === id
+                            ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20'
+                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700'
+                          }`}
+            >
+              <span className="block">{label}</span>
+              <span className={`block text-xs mt-0.5 font-normal
+                                ${form.pdfOrientation === id ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+                {desc}
+              </span>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Document Metadata" sub="Additional rows in exported spreadsheets">
+        <div className="flex flex-col">
+          <Toggle
+            checked={form.showGenerationTimestamp}
+            onChange={set('showGenerationTimestamp')}
+            label="Show generation timestamp"
+            sub="Display 'Generated on: ...' in PDF footers"
+          />
+        </div>
+      </Section>
+
+      <div className="flex items-center justify-end gap-3">
+        {saving && (
+          <span className="flex items-center gap-1.5 text-xs text-amber-500">
+            <RefreshCw size={12} className="animate-spin" /> Saving...
+          </span>
+        )}
+        <SaveButton onSave={handleSave} saved={saved} />
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MOBILE TAB PILL BAR
 // Horizontally scrollable pill strip shown on < md screens.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -831,11 +1070,14 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
 
   const CONTENT = {
-    general:     <GeneralTab />,
-    billing:     <BillingPosTab />,
-    hours:       <BusinessHoursTab />,
-    preferences: <SystemPreferencesTab />,
-    messaging:   <MessagingTab />,
+    general:         <GeneralTab />,
+    billing:         <BillingPosTab />,
+    hours:           <BusinessHoursTab />,
+    preferences:     <SystemPreferencesTab />,
+    messaging:       <MessagingTab />,
+    'hotel-info':    <HotelInfoTab />,
+    'inventory-rules': <InventoryRulesTab />,
+    'pdf-layouts':   <PdfLayoutsTab />,
   }
 
   return (

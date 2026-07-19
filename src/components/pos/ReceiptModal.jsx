@@ -1,7 +1,8 @@
 import { Printer, X } from 'lucide-react'
 import { printThermalReceipt } from '../ui/ThermalReceipt'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
-const fmtM = (n) => `Rs. ${Number(n).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
+const fmtM = fmtCurrencyDirect
 
 /**
  * Extract customer name from order notes JSON or fallback
@@ -133,7 +134,7 @@ export default function ReceiptModal({ isOpen, onClose, order }) {
               <div className="flex justify-between">
                 <span className="font-bold">Status</span>
                 <span className={order.paymentStatus === 'PAID' ? 'text-black' : order.paymentStatus === 'PARTIAL' ? 'text-black' : 'text-black'}>
-                  {order.paymentStatus === 'PAID' ? '✓ PAID' : order.paymentStatus === 'PARTIAL' ? `PARTIAL (Rs. ${Number(order.amountPaid || 0).toLocaleString('en-LK')})` : 'NOT PAID'}
+                  {order.paymentStatus === 'PAID' ? '✓ PAID' : order.paymentStatus === 'PARTIAL' ? `PARTIAL (${fmtCurrencyDirect(order.amountPaid || 0)})` : 'NOT PAID'}
                 </span>
               </div>
             </div>

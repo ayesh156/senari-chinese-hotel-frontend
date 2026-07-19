@@ -13,6 +13,7 @@ import FoodCard from '../../components/ui/FoodCard'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
 import { useCartStore } from '../../utils/store'
 import { MENU_ITEMS, CATEGORIES } from '../../utils/menuData'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
 const ITEMS_PER_PAGE = 6
 const MAX_PRICE      = Math.max(...MENU_ITEMS.map(i => i.price), 2000) // never below 2000
@@ -78,7 +79,7 @@ function FilterSidebarContent({ priceRange, onPrice, newOnly, onNew, healthyOnly
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Max Price</p>
           <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/30
                            px-2 py-0.5 rounded-full border border-amber-100 dark:border-amber-800">
-            Under Rs. {Number(priceRange).toLocaleString('en-LK')}
+            Under {fmtCurrencyDirect(priceRange)}
           </span>
         </div>
         <input type="range" min={0} max={MAX_PRICE} step={50}
@@ -87,7 +88,7 @@ function FilterSidebarContent({ priceRange, onPrice, newOnly, onNew, healthyOnly
                      accent-amber-500 dark:[color-scheme:dark]
                      bg-gray-200 dark:bg-gray-700" />
         <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500">
-          <span>Rs. 0</span><span>Rs. {MAX_PRICE.toLocaleString('en-LK')}</span>
+          <span>Rss. 0</span><span>{fmtCurrencyDirect(MAX_PRICE)}</span>
         </div>
       </div>
 
@@ -233,7 +234,7 @@ function ListItem({ item }) {
       </div>
       <div className="flex flex-col items-end gap-2 shrink-0">
         <p className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-          Rs. {Number(item.price).toLocaleString('en-LK')}
+          {fmtCurrencyDirect(item.price)}
         </p>
         <button onClick={handleAdd}
           className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95

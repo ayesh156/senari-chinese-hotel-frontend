@@ -6,6 +6,7 @@ import {
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { io } from 'socket.io-client'
 import { useLiveOrdersStore } from '../../utils/liveOrdersStore'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -151,7 +152,7 @@ function OrderCard({ order, col, onAdvance }) {
             <ShoppingBag size={12} />
             <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
             <span className="font-bold text-gray-700 dark:text-gray-300 ml-1">
-              Rs. {Number(order.total || 0).toLocaleString('en-LK')}
+              {fmtCurrencyDirect(order.total || 0)}
             </span>
           </div>
           {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -170,7 +171,7 @@ function OrderCard({ order, col, onAdvance }) {
                   {' '}{item.food?.name || item.name || 'Item'}
                 </span>
                 <span className="shrink-0 tabular-nums">
-                  Rs. {Number(item.subtotal).toLocaleString('en-LK')}
+                  {fmtCurrencyDirect(item.subtotal)}
                 </span>
               </li>
             ))}
@@ -180,7 +181,7 @@ function OrderCard({ order, col, onAdvance }) {
                              border-t border-amber-100 dark:border-gray-700 pt-1.5 mt-0.5">
                 <span>Discount</span>
                 <span className="tabular-nums">
-                  − Rs. {Number(order.discount).toLocaleString('en-LK')}
+                  − {fmtCurrencyDirect(order.discount)}
                 </span>
               </li>
             )}

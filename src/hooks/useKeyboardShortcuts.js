@@ -26,7 +26,7 @@ export function useKeyboardShortcuts({ searchRef, discountInputRef, customerCash
           break;
         case 'F11':
           e.preventDefault();
-          setDiscountType(v => v === '%' ? 'Rs.' : '%');
+          setDiscountType(v => v === '%' ? 'fixed' : '%');
           setDiscount('');
           break;
         case 'F12':

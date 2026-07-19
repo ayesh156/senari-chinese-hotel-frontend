@@ -10,7 +10,9 @@ import { usePurchaseOrderStore, PO_STATUS, PO_STATUS_LABELS } from '../../utils/
 import { useSupplierStore } from '../../utils/supplierStore'
 import { useInventoryStore } from '../../utils/inventoryStore'
 import SearchableSelect from '../../components/ui/SearchableSelect'
+import { useSettingsStore } from '../../utils/settingsStore'
 import ModernPagination from '../../components/ui/ModernPagination'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 8
@@ -28,7 +30,7 @@ const SUPPLIER_OPTIONS = (suppliers) => [
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const fmtRs = (n) => `Rs. ${Number(n).toLocaleString('en-LK')}`
+const fmtRs = fmtCurrencyDirect
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-LK', {
@@ -224,6 +226,8 @@ function DeleteModal({ po, onConfirm, onCancel }) {
 function POFormModal({ suppliers, inventoryItems, editTarget, onSave, onCancel }) {
   const isEdit = Boolean(editTarget)
   const [step, setStep] = useState(1)
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
+
 
   // Step 1 state
   const [supplierId, setSupplierId] = useState(isEdit ? String(editTarget.supplierId) : '')
@@ -458,7 +462,7 @@ function POFormModal({ suppliers, inventoryItems, editTarget, onSave, onCancel }
                       placeholder="0" className={inputCls(false)} />
                   </div>
                   <div>
-                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Unit Price (Rs.)</label>
+                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Unit Price ({currencySymbol})</label>
                     <input type="number" min="0" step="any" value={linePrice}
                       onChange={e => { setLinePrice(e.target.value); setLineErr('') }}
                       placeholder="0.00" className={inputCls(false)} />
@@ -525,11 +529,11 @@ function POFormModal({ suppliers, inventoryItems, editTarget, onSave, onCancel }
               {!isEdit && (
                 <div>
                   <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1.5">
-                    Initial Payment (Rs.) <span className="text-gray-400 font-normal normal-case">— leave 0 for UNPAID</span>
+                    Initial Payment ({currencySymbol}) <span className="text-gray-400 font-normal normal-case">— leave 0 for UNPAID</span>
                   </label>
                   <div className="flex gap-2 items-center">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">Rs.</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">{currencySymbol}</span>
                       <input type="number" min="0" max={subtotal} step="1" value={amountPaid}
                         onChange={e => setAmountPaid(e.target.value)}
                         placeholder="0"
@@ -571,7 +575,7 @@ function POFormModal({ suppliers, inventoryItems, editTarget, onSave, onCancel }
                       </label>
                       <div className="flex gap-2 items-center">
                         <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">Rs.</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">{currencySymbol}</span>
                           <input type="number" min="0" max={balanceDue} step="1" value={additionalPayment}
                             onChange={e => setAdditionalPayment(e.target.value)}
                             placeholder="0"
