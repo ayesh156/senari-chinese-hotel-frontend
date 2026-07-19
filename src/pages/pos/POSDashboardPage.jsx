@@ -1,29 +1,18 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  DollarSign, ShoppingBag, ChefHat, UtensilsCrossed,
-  TrendingUp, ArrowUpRight, Clock, Box, Factory,
+  DollarSign, TrendingUp, ArrowUpRight, Clock, Box, Factory,
   LayoutGrid, List, ChevronUp, ChevronDown, Utensils,
   AlertTriangle, ArrowRight, Package, Banknote,
+  RefreshCw,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import {
-  MOCK_ORDERS,
-  lowStockItemsCount, totalPendingSupplierPayables,
-  todayRevenue, pendingCount, preparingCount,
-  occupiedTables, totalTables,
-} from '../../utils/mockOrders'
-import {
-  HOURLY_SALES, CATEGORY_STATS,
-  maxHourlyRevenue, totalTodayOrders,
-} from '../../utils/posAnalytics'
-import {
-  INVENTORY_ITEMS, getStockStatus, STOCK_STATUS,
-} from '../../utils/inventoryData'
+import { useDashboardStore, useDashboardPolling } from '../../utils/dashboardStore'
 import { useSettingsStore } from '../../utils/settingsStore'
+import { fmtCurrencyDirect } from '../../utils/currency'
 import ModernPagination from '../../components/ui/ModernPagination'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,15 +21,8 @@ import ModernPagination from '../../components/ui/ModernPagination'
 const ITEMS_PER_PAGE = 8
 
 // Stable mock trend values — computed once, not on every render
-const TRENDS = {
-  sales:    '+12%',
-  tables:   `+${occupiedTables}`,
-  stock:    lowStockItemsCount > 0 ? `-${lowStockItemsCount}` : '0',
-  payables: totalPendingSupplierPayables > 0 ? 'Due' : 'Clear',
-}
 
 // Chart data for the AreaChart (hourly sales)
-const CHART_DATA = HOURLY_SALES.map(h => ({ hour: h.hour, sales: h.revenue }))
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATUS / TYPE CONFIG
@@ -61,12 +43,13 @@ const TYPE_CONFIG = {
 // RECHARTS CUSTOM TOOLTIP
 // ─────────────────────────────────────────────────────────────────────────────
 function ChartTooltip({ active, payload, label }) {
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg bg-gray-900 px-3 py-2 text-white shadow-xl">
       <p className="text-sm font-bold">{label}</p>
       <p className="text-xs text-amber-300">
-        Rs. {payload[0].value.toLocaleString('en-LK')}
+        {currencySymbol} {payload[0].value.toLocaleString('en-LK')}
       </p>
     </div>
   )
@@ -142,10 +125,12 @@ function MetricCard({ icon: Icon, label, value, sub, trend, trendUp, iconBg, ico
 // ─────────────────────────────────────────────────────────────────────────────
 // SALES OVERVIEW — Recharts AreaChart (amber brand)
 // ─────────────────────────────────────────────────────────────────────────────
-function SalesOverviewChart() {
-  const totalRevenue = HOURLY_SALES.reduce((s, h) => s + h.revenue, 0)
-  const avgOrder     = totalTodayOrders > 0
-    ? Math.round(todayRevenue / totalTodayOrders)
+function SalesOverviewChart({ trend = [], completedOrders = 0, revenue = 0 }) {
+  const chartData = trend.length > 0 ? trend.map(h => ({ hour: h.hour, sales: h.revenue })) : []
+
+  const totalRevenue = trend.reduce((s, h) => s + (h.revenue || 0), 0)
+  const avgOrder = completedOrders > 0
+    ? Math.round(revenue / completedOrders)
     : 0
 
   return (
@@ -157,20 +142,20 @@ function SalesOverviewChart() {
             Today's Sales Trend
           </h2>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-            Hourly revenue · {totalTodayOrders} orders today
+            Hourly revenue · {completedOrders} orders today
           </p>
         </div>
         <div className="text-right shrink-0">
           <p className="text-xs text-gray-400 dark:text-gray-500">Avg. order</p>
           <p className="text-sm font-bold text-amber-500 tabular-nums">
-            Rs. {avgOrder.toLocaleString('en-LK')}
+            {fmtCurrencyDirect(avgOrder)}
           </p>
         </div>
       </div>
 
       <div className="h-52 sm:h-60">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={CHART_DATA} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor="#F59E0B" stopOpacity={0.25} />
@@ -210,7 +195,7 @@ function SalesOverviewChart() {
         </div>
         <div className="ml-auto flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
           <TrendingUp size={12} className="text-green-500" />
-          <span>Rs. {totalRevenue.toLocaleString('en-LK')} total</span>
+          <span>{fmtCurrencyDirect(totalRevenue)} total</span>
         </div>
       </div>
     </div>
@@ -220,8 +205,18 @@ function SalesOverviewChart() {
 // ─────────────────────────────────────────────────────────────────────────────
 // POPULAR CATEGORIES — Progress Meter Rows + Donut Ring
 // ─────────────────────────────────────────────────────────────────────────────
-function PopularCategories() {
+function PopularCategories({ categories = [] }) {
   const [hovered, setHovered] = useState(null)
+
+  if (categories.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 sm:p-6
+                      border border-gray-100 dark:border-gray-800 shadow-sm h-full
+                      flex items-center justify-center">
+        <p className="text-sm text-gray-400">No sales data yet today</p>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 sm:p-6
@@ -236,15 +231,16 @@ function PopularCategories() {
       </div>
 
       <div className="flex flex-col gap-4">
-        {CATEGORY_STATS.map((cat, i) => (
+        {categories.map((cat, i) => (
           <div key={cat.name} className="cursor-default"
             onMouseEnter={() => setHovered(i)}
             onMouseLeave={() => setHovered(null)}>
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
-                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${cat.color}
-                                 transition-transform duration-200
-                                 ${hovered === i ? 'scale-125' : ''}`} />
+                <div className={`w-2.5 h-2.5 rounded-full shrink-0
+                                transition-transform duration-200
+                                ${hovered === i ? 'scale-125' : ''}`}
+                     style={{ backgroundColor: cat.fill || '#6b7280' }} />
                 <span className={`text-sm font-medium transition-colors duration-200
                                   ${hovered === i
                                     ? 'text-gray-900 dark:text-gray-100'
@@ -252,52 +248,60 @@ function PopularCategories() {
                   {cat.name}
                 </span>
               </div>
-              <span className={`text-sm font-bold tabular-nums ${cat.textColor}`}>
+              <span className="text-sm font-bold tabular-nums text-gray-700 dark:text-gray-300">
                 {cat.pct}%
               </span>
             </div>
             <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-700 ease-out ${cat.color}
-                               ${hovered === i ? 'opacity-100' : 'opacity-70'}`}
-                style={{ width: `${cat.pct}%` }} />
+              <div className="h-full rounded-full transition-all duration-700 ease-out"
+                   style={{
+                     width: `${cat.pct}%`,
+                     backgroundColor: cat.fill || '#6b7280',
+                     opacity: hovered === i ? 1 : 0.7,
+                   }} />
             </div>
           </div>
         ))}
       </div>
 
       {/* Donut ring summary */}
-      <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-800">
-        <div className="flex items-center justify-center gap-4">
-          <div className="w-20 h-20 rounded-full shrink-0"
-            style={{
-              background: `conic-gradient(
-                #F59E0B 0% 38%, #3B82F6 38% 64%,
-                #A855F7 64% 82%, #14B8A6 82% 94%, #EC4899 94% 100%
-              )`,
-            }}
-            aria-hidden="true">
-            <div className="w-full h-full rounded-full flex items-center justify-center
-                            bg-white dark:bg-gray-900 scale-[0.65]">
-              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400
-                               text-center leading-tight">
-                {CATEGORY_STATS.length}<br/>cats
-              </span>
+      {categories.length > 0 && (
+        <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-800">
+          <div className="flex items-center justify-center gap-4">
+            <div className="w-20 h-20 rounded-full shrink-0"
+              style={{
+                background: `conic-gradient(${categories.map((c, i) => {
+                  const pct = c.pct || 0
+                  const fill = c.fill || '#6b7280'
+                  const prev = categories.slice(0, i).reduce((s, x) => s + (x.pct || 0), 0)
+                  return `${fill} ${prev}% ${prev + pct}%`
+                }).join(', ')})`,
+              }}
+              aria-hidden="true">
+              <div className="w-full h-full rounded-full flex items-center justify-center
+                              bg-white dark:bg-gray-900 scale-[0.65]">
+                <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400
+                                text-center leading-tight">
+                  {categories.length}<br/>cats
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {categories.slice(0, 3).map(cat => (
+                <div key={cat.name} className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full shrink-0"
+                       style={{ backgroundColor: cat.fill || '#6b7280' }} />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{cat.name}</span>
+                  <span className="text-xs font-bold ml-auto pl-2 text-gray-700 dark:text-gray-300">{cat.pct}%</span>
+                </div>
+              ))}
+              <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">
+                +{categories.length - 3} more
+              </p>
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            {CATEGORY_STATS.slice(0, 3).map(cat => (
-              <div key={cat.name} className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full shrink-0 ${cat.color}`} />
-                <span className="text-xs text-gray-500 dark:text-gray-400">{cat.name}</span>
-                <span className={`text-xs font-bold ml-auto pl-2 ${cat.textColor}`}>{cat.pct}%</span>
-              </div>
-            ))}
-            <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">
-              +{CATEGORY_STATS.length - 3} more
-            </p>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -410,7 +414,7 @@ function OrderTableView({ orders, sortCol, sortDir, onSort }) {
               </td>
               <td className="px-4 py-3 font-bold text-gray-900 dark:text-gray-100
                              whitespace-nowrap tabular-nums">
-                Rs. {order.grandTotal.toLocaleString('en-LK')}
+                {fmtCurrencyDirect(order.grandTotal)}
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <StatusBadge status={order.status} />
@@ -447,8 +451,8 @@ function OrderGridView({ orders }) {
             <span className="text-gray-500 dark:text-gray-400">
               {order.items.length} item{order.items.length !== 1 ? 's' : ''}
             </span>
-            <span className="font-bold text-gray-900 dark:text-gray-100 tabular-nums">
-              Rs. {order.grandTotal.toLocaleString('en-LK')}
+          <span className="font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+              {fmtCurrencyDirect(order.grandTotal)}
             </span>
           </div>
           <div className="mt-3 flex items-center gap-2 pt-3
@@ -534,22 +538,9 @@ function OrderSection({ title, badge, badgeColor, orders, accentDot }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LOW STOCK PANEL
+// LOW STOCK PANEL (uses live API data via props)
 // ─────────────────────────────────────────────────────────────────────────────
-const STOCK_STATUS_CFG = {
-  [STOCK_STATUS.OUT]: { label: 'Out of Stock', cls: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' },
-  [STOCK_STATUS.LOW]: { label: 'Low Stock',    cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
-}
-
-function LowStockPanel({ onNavigate }) {
-  const alertItems = useMemo(
-    () => INVENTORY_ITEMS
-      .map(i => ({ ...i, status: getStockStatus(i) }))
-      .filter(i => i.status !== STOCK_STATUS.IN)
-      .sort((a, b) => a.quantityInStock - b.quantityInStock),
-    [],
-  )
-
+function LowStockPanel({ alertItems = [], onNavigate }) {
   if (alertItems.length === 0) return null
 
   return (
@@ -586,9 +577,13 @@ function LowStockPanel({ onNavigate }) {
       {/* Items grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4">
         {alertItems.slice(0, 8).map(item => {
-          const cfg = STOCK_STATUS_CFG[item.status]
+          const isOut = item.quantity <= 0
+          const cfgCls = isOut
+            ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+          const cfgLabel = isOut ? 'Out of Stock' : 'Low Stock'
           const pct = item.minAlertLevel > 0
-            ? Math.min(100, Math.round((item.quantityInStock / item.minAlertLevel) * 100))
+            ? Math.min(100, Math.round((item.quantity / item.minAlertLevel) * 100))
             : 0
           return (
             <div key={item.id}
@@ -600,22 +595,22 @@ function LowStockPanel({ onNavigate }) {
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {item.itemName}
+                    {item.name}
                   </p>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                    {item.sku} · {item.category}
+                    {item.sku}
                   </p>
                 </div>
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full
-                                  text-[10px] font-bold border shrink-0 ${cfg.cls}`}>
-                  {cfg.label}
+                                  text-[10px] font-bold border shrink-0 ${cfgCls}`}>
+                  {cfgLabel}
                 </span>
               </div>
               {/* Stock bar */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold tabular-nums text-gray-700 dark:text-gray-300">
-                    {item.quantityInStock} {item.unit}
+                    {item.quantity} {item.unit}
                   </span>
                   <span className="text-[10px] text-gray-400 dark:text-gray-500">
                     min: {item.minAlertLevel}
@@ -624,10 +619,7 @@ function LowStockPanel({ onNavigate }) {
                 <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500
-                                ${item.status === STOCK_STATUS.OUT
-                                  ? 'bg-red-500'
-                                  : 'bg-amber-500'
-                                }`}
+                                ${isOut ? 'bg-red-500' : 'bg-amber-500'}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -653,37 +645,37 @@ function LowStockPanel({ onNavigate }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QUICK LINKS PANEL
+// QUICK LINKS PANEL (uses live API data via props)
 // ─────────────────────────────────────────────────────────────────────────────
-function QuickLinksPanel({ onNavigate }) {
+function QuickLinksPanel({ lowStockCount = 0, pendingPayables = 0, pendingCount = 0, onNavigate }) {
   const links = [
     {
       label:    'Low Stock Items',
-      sub:      `${lowStockItemsCount} item${lowStockItemsCount !== 1 ? 's' : ''} below threshold`,
+      sub:      `${lowStockCount} item${lowStockCount !== 1 ? 's' : ''} below threshold`,
       icon:     Package,
       iconBg:   'bg-red-100 dark:bg-red-900/30',
       iconCls:  'text-red-600 dark:text-red-400',
-      badge:    lowStockItemsCount > 0 ? String(lowStockItemsCount) : null,
+      badge:    lowStockCount > 0 ? String(lowStockCount) : null,
       badgeCls: 'bg-red-500 text-white',
       path:     '/pos/inventory',
     },
     {
       label:    'Pending Payables',
-      sub:      `Rs. ${totalPendingSupplierPayables.toLocaleString('en-LK')} due to suppliers`,
+      sub:      `${fmtCurrencyDirect(pendingPayables)} due to suppliers`,
       icon:     Banknote,
       iconBg:   'bg-purple-100 dark:bg-purple-900/30',
       iconCls:  'text-purple-600 dark:text-purple-400',
-      badge:    totalPendingSupplierPayables > 0 ? 'Due' : null,
+      badge:    pendingPayables > 0 ? 'Due' : null,
       badgeCls: 'bg-purple-500 text-white',
       path:     '/pos/purchase-orders',
     },
     {
       label:    'Live Orders',
-      sub:      `${pendingCount + preparingCount} orders in queue`,
+      sub:      `${pendingCount} orders in queue`,
       icon:     Clock,
       iconBg:   'bg-amber-100 dark:bg-amber-900/30',
       iconCls:  'text-amber-600 dark:text-amber-400',
-      badge:    pendingCount + preparingCount > 0 ? String(pendingCount + preparingCount) : null,
+      badge:    pendingCount > 0 ? String(pendingCount) : null,
       badgeCls: 'bg-amber-500 text-white',
       path:     '/pos/orders',
     },
@@ -755,11 +747,63 @@ function QuickLinksPanel({ onNavigate }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function POSDashboardPage() {
   const navigate = useNavigate()
+  const { data, loading, error, fetchDashboardSummary } = useDashboardStore()
   const showLowStockOnDashboard = useSettingsStore(s => s.showLowStockOnDashboard)
 
-  const liveOrders = MOCK_ORDERS.filter(o => o.status !== 'COMPLETED')
-  const doneOrders = MOCK_ORDERS.filter(o => o.status === 'COMPLETED')
-  const prepQueue  = pendingCount + preparingCount
+  // Auto-poll every 30 seconds
+  useDashboardPolling(30_000)
+
+  const {
+    todaySales,
+    occupiedTables,
+    lowStockAlerts,
+    pendingPayables,
+    todaySalesTrend,
+    popularCategories,
+  } = data
+
+  const completedOrders = todaySales?.completedOrders ?? 0
+  const todayRevenue = todaySales?.revenue ?? 0
+  const occupiedCount = occupiedTables?.occupied ?? 0
+  const totalTables = occupiedTables?.total ?? 0
+  const lowStockCount = lowStockAlerts?.count ?? 0
+  const lowStockItems = lowStockAlerts?.items ?? []
+  const pendingOutstanding = pendingPayables?.totalOutstanding ?? 0
+
+  // Compute trends
+  const trends = useMemo(() => ({
+    sales:    completedOrders > 0 ? `+${completedOrders}` : '0',
+    tables:   `+${occupiedCount}`,
+    stock:    lowStockCount > 0 ? `-${lowStockCount}` : '0',
+    payables: pendingOutstanding > 0 ? 'Due' : 'Clear',
+  }), [completedOrders, occupiedCount, lowStockCount, pendingOutstanding])
+
+  // Loading state
+  if (loading && !data.timestamp) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 max-w-7xl mx-auto">
+        <RefreshCw size={32} className="text-amber-500 animate-spin" />
+        <p className="text-sm font-medium text-gray-400">Loading dashboard...</p>
+      </div>
+    )
+  }
+
+  // Error state (only if no data at all)
+  if (error && !data.timestamp) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 max-w-7xl mx-auto">
+        <AlertTriangle size={48} className="text-red-400" />
+        <p className="text-sm font-medium text-red-500">Failed to load dashboard</p>
+        <p className="text-xs text-gray-400">{error}</p>
+        <button
+          onClick={fetchDashboardSummary}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+        >
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto">
@@ -774,12 +818,27 @@ export default function POSDashboardPage() {
             Real-time overview of today's operations
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-green-500/20
-                        bg-green-500/10 px-3 py-1.5 shrink-0">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-          <span className="text-xs font-semibold uppercase tracking-widest text-green-500">
-            Live
-          </span>
+        <div className="flex items-center gap-2">
+          {/* Live indicator */}
+          <div className="flex items-center gap-2 rounded-full border border-green-500/20
+                          bg-green-500/10 px-3 py-1.5 shrink-0">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-green-500">
+              Live
+            </span>
+          </div>
+          {/* Manual refresh */}
+          <button
+            onClick={fetchDashboardSummary}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold
+                       bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700
+                       text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700
+                       transition-colors shrink-0 disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
         </div>
       </div>
 
@@ -788,9 +847,9 @@ export default function POSDashboardPage() {
         <MetricCard
           icon={DollarSign}
           label="Today's Sales"
-          value={`Rs. ${todayRevenue.toLocaleString('en-LK')}`}
-          sub={`${doneOrders.length} completed orders`}
-          trend={TRENDS.sales}
+          value={fmtCurrencyDirect(todayRevenue)}
+          sub={`${completedOrders} completed orders`}
+          trend={trends.sales}
           trendUp={true}
           iconBg="bg-emerald-100 dark:bg-emerald-900/30"
           iconColor="text-emerald-600 dark:text-emerald-400"
@@ -799,9 +858,9 @@ export default function POSDashboardPage() {
         <MetricCard
           icon={Utensils}
           label="Occupied Tables"
-          value={`${occupiedTables} / ${totalTables}`}
+          value={`${occupiedCount} / ${totalTables}`}
           sub="Active dine-in tables right now"
-          trend={`${occupiedTables} active`}
+          trend={`${occupiedCount} active`}
           trendUp={true}
           iconBg="bg-orange-100 dark:bg-orange-900/30"
           iconColor="text-orange-600 dark:text-orange-400"
@@ -810,10 +869,10 @@ export default function POSDashboardPage() {
         <MetricCard
           icon={Box}
           label="Low Stock Alerts"
-          value={lowStockItemsCount}
+          value={lowStockCount}
           sub="Items below safety stock level"
-          trend={lowStockItemsCount > 0 ? `${lowStockItemsCount} items` : 'All good'}
-          trendUp={lowStockItemsCount === 0}
+          trend={lowStockCount > 0 ? `${lowStockCount} items` : 'All good'}
+          trendUp={lowStockCount === 0}
           iconBg="bg-red-100 dark:bg-red-900/30"
           iconColor="text-red-600 dark:text-red-400"
           accentBar="bg-gradient-to-r from-red-400 to-rose-500"
@@ -821,10 +880,10 @@ export default function POSDashboardPage() {
         <MetricCard
           icon={Factory}
           label="Pending Payables"
-          value={`Rs. ${totalPendingSupplierPayables.toLocaleString('en-LK')}`}
+          value={fmtCurrencyDirect(pendingOutstanding)}
           sub="Due to suppliers"
-          trend={totalPendingSupplierPayables > 0 ? 'Due' : 'Clear'}
-          trendUp={totalPendingSupplierPayables === 0}
+          trend={pendingOutstanding > 0 ? 'Due' : 'Clear'}
+          trendUp={pendingOutstanding === 0}
           iconBg="bg-purple-100 dark:bg-purple-900/30"
           iconColor="text-purple-600 dark:text-purple-400"
           accentBar="bg-gradient-to-r from-purple-400 to-pink-500"
@@ -834,38 +893,29 @@ export default function POSDashboardPage() {
       {/* ── Analytics Split ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
         <div className="lg:col-span-8">
-          <SalesOverviewChart />
+          <SalesOverviewChart
+            trend={todaySalesTrend}
+            completedOrders={completedOrders}
+            revenue={todayRevenue}
+          />
         </div>
         <div className="lg:col-span-4">
-          <PopularCategories />
+          <PopularCategories categories={popularCategories} />
         </div>
       </div>
 
       {/* ── Quick Links ── */}
-      <QuickLinksPanel onNavigate={navigate} />
+      <QuickLinksPanel
+        lowStockCount={lowStockCount}
+        pendingPayables={pendingOutstanding}
+        pendingCount={0}
+        onNavigate={navigate}
+      />
 
       {/* ── Low Stock Alerts (conditional on settings flag) ── */}
-      {showLowStockOnDashboard && (
-        <LowStockPanel onNavigate={() => navigate('/pos/inventory')} />
+      {showLowStockOnDashboard && lowStockItems.length > 0 && (
+        <LowStockPanel alertItems={lowStockItems} onNavigate={() => navigate('/pos/inventory')} />
       )}
-
-      {/* ── Live Incoming Orders ── */}
-      <OrderSection
-        title="Live Incoming Orders"
-        badge={`${liveOrders.length} active`}
-        badgeColor="text-amber-500 bg-amber-500/10 border-amber-500/20"
-        orders={liveOrders}
-        accentDot="bg-amber-500"
-      />
-
-      {/* ── Completed Today ── */}
-      <OrderSection
-        title="Completed Today"
-        badge={`${doneOrders.length} orders`}
-        badgeColor="text-green-500 bg-green-500/10 border-green-500/20"
-        orders={doneOrders}
-        accentDot={null}
-      />
 
     </div>
   )

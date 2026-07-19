@@ -10,6 +10,9 @@ import ModernPagination from '../../components/ui/ModernPagination'
 import ReceiptModal from '../../components/pos/ReceiptModal'
 import { io } from 'socket.io-client'
 import { useInvoiceStore } from '../../utils/invoiceStore'
+import { fmtCurrencyDirect } from '../../utils/currency'
+import { useSettingsStore } from '../../utils/settingsStore'
+
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
 
@@ -79,7 +82,8 @@ function isInDateRange(iso, range) {
   if (range === 'all')       return true
   if (range === 'today')     return date >= startOf(now)
   if (range === 'yesterday') {
-    const y = new Date(now); y.setDate(y.getDate() - 1)
+    const y = new Date(now);
+    y.setDate(y.getDate() - 1)
     return date >= startOf(y) && date < startOf(now)
   }
   if (range === '7days')  { const d = new Date(now); d.setDate(d.getDate() - 7);  return date >= d }
@@ -133,7 +137,7 @@ function PaymentBadge({ status, amountPaid, total }) {
                          bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
           <CheckCircle2 size={11} /> Paid
         </span>
-        <span className="text-[10px] text-green-500 dark:text-green-400 tabular-nums">Rs. {Number(amountPaid || 0).toLocaleString('en-LK')}</span>
+        <span className="text-[10px] text-green-500 dark:text-green-400 tabular-nums">{fmtCurrencyDirect(amountPaid || 0)}</span>
       </div>
     )
   }
@@ -144,7 +148,7 @@ function PaymentBadge({ status, amountPaid, total }) {
                          bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30">
           <AlertTriangle size={11} /> Partial
         </span>
-        <span className="text-[10px] text-amber-600 dark:text-amber-400 tabular-nums">Rs. {Number(amountPaid || 0).toLocaleString('en-LK')} / {Number(total || 0).toLocaleString('en-LK')}</span>
+        <span className="text-[10px] text-amber-600 dark:text-amber-400 tabular-nums">{fmtCurrencyDirect(amountPaid || 0)} / {Number(total || 0).toLocaleString('en-LK')}</span>
       </div>
     )
   }
@@ -218,6 +222,8 @@ function DeleteModal({ order, onConfirm, onCancel }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function InvoicesPage() {
   const navigate = useNavigate()
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
+
 
   // ── Invoice store ────────────────────────────────────────────────────────
   const { orders, loading, fetchOrders, deleteOrder, addInvoiceToList, updateInvoiceInList } = useInvoiceStore()
@@ -318,7 +324,7 @@ export default function InvoicesPage() {
               Total Revenue:
             </span>
             <span className="text-sm font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">
-              Rs. {totalRevenue.toLocaleString('en-LK')}
+              {fmtCurrencyDirect(totalRevenue)}
             </span>
           </div>
           {/* Add Invoice button — navigates to Quick POS */}
@@ -525,7 +531,7 @@ export default function InvoicesPage() {
                             <p className="text-[10px] text-gray-400 dark:text-gray-500">{time}</p>
                           </div>
                           <p className="text-base font-extrabold text-gray-900 dark:text-gray-100 tabular-nums">
-                            Rs. {Number(order.total || 0).toLocaleString('en-LK')}
+                            {fmtCurrencyDirect(order.total || 0)}
                           </p>
                         </div>
                         <PaymentBadge status={order.paymentStatus} amountPaid={order.amountPaid} total={order.total} />
@@ -607,7 +613,7 @@ export default function InvoicesPage() {
                         <StatusBadge status={order.status || order.orderStatus} />
                       </td>
                       <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-gray-100">
-                        Rs. {Number(order.total || 0).toLocaleString('en-LK')}
+                        {fmtCurrencyDirect(order.total || 0)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <PaymentBadge status={order.paymentStatus} amountPaid={order.amountPaid} total={order.total} />

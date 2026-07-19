@@ -12,6 +12,8 @@ import { useMasterDataStore, buildFoodCategoryFilterOptions } from '../../utils/
 import { useFoodStore } from '../../utils/foodStore'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import ModernPagination from '../../components/ui/ModernPagination'
+import { fmtCurrencyDirect } from '../../utils/currency'
+
 
 // ── Bulletproof image URL constructor ────────────────────────────────────────
 const getImageUrl = (path) => {
@@ -33,10 +35,10 @@ const AVAIL_SELECT_OPTIONS = [
 
 const PRICE_RANGE_OPTIONS = [
   { value: 'all',      label: 'Any Price'       },
-  { value: '0-500',    label: 'Under Rs. 500'   },
-  { value: '500-800',  label: 'Rs. 500 – 800'   },
-  { value: '800-1000', label: 'Rs. 800 – 1,000' },
-  { value: '1000+',    label: 'Over Rs. 1,000'  },
+  { value: '0-500',    label: 'Under Rss. 500'   },
+  { value: '500-800',  label: 'Rss. 500 – 800'   },
+  { value: '800-1000', label: 'Rss. 800 – 1,000' },
+  { value: '1000+',    label: 'Over Rss. 1,000'  },
 ]
 
 const CAT_COLORS = {
@@ -311,7 +313,7 @@ export default function FoodsListPage() {
                     <div className="flex flex-col flex-1 p-3 gap-2">
                       <p className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight line-clamp-2">{item.name}</p>
                       <CategoryPill category={item.category?.name || item.category} />
-                      <p className="text-base font-extrabold text-amber-600 dark:text-amber-400 tabular-nums mt-auto">Rs. {Number(item.price).toLocaleString('en-LK')}</p>
+                      <p className="text-base font-extrabold text-amber-600 dark:text-amber-400 tabular-nums mt-auto">{fmtCurrencyDirect(item.price)}</p>
                     </div>
                     <div className="flex border-t border-amber-100 dark:border-gray-700 divide-x divide-amber-100 dark:divide-gray-700">
                       <button onClick={() => navigate(`/pos/foods/edit/${item.id}`)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-100/50 dark:hover:bg-amber-500/10 transition-colors"><Pencil size={13} /> Edit</button>
@@ -351,7 +353,7 @@ export default function FoodsListPage() {
                       {item.description && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 max-w-xs truncate">{item.description}</p>}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap"><CategoryPill category={item.category?.name || item.category} /></td>
-                    <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-white">Rs. {Number(item.price).toLocaleString('en-LK')}</td>
+                    <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-white">{fmtCurrencyDirect(item.price)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <button onClick={() => toggleAvailability(item.id)} title="Click to toggle" className="transition-opacity hover:opacity-75"><AvailabilityBadge available={item.isAvailable} /></button>
                     </td>

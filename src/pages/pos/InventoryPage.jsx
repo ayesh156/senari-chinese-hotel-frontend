@@ -11,6 +11,8 @@ import SearchableSelect from '../../components/ui/SearchableSelect';
 import ModernPagination from '../../components/ui/ModernPagination';
 import InventoryFormModal from '../../components/pos/InventoryFormModal';
 import InventoryHistoryModal from '../../components/pos/InventoryHistoryModal';
+import { fmtCurrencyDirect } from '../../utils/currency';
+import { useSettingsStore } from '../../utils/settingsStore';
 
 const PAGE_SIZE = 8;
 
@@ -60,7 +62,7 @@ const ADJUSTMENT_REASONS = [
 
 const REASON_OPTIONS = ADJUSTMENT_REASONS.map(r => ({ value: r.value, label: r.label }));
 
-const fmt = (n) => `Rs. ${Math.round(n).toLocaleString('en-LK')}`;
+const fmt = (n) => fmtCurrencyDirect(n);
 const fmtQty = (n) => Number.isInteger(n) ? String(n) : n.toFixed(1);
 
 // ── Category Badge ─────────────────────────────────────────────────────────
@@ -75,7 +77,8 @@ function CategoryPill({ category }) {
 }
 
 function StatusBadge({ item }) {
-  const status = getStockStatus(item);
+  const lowStockThreshold = useSettingsStore(s => s.lowStockThreshold ?? 2)
+  const status = getStockStatus(item, lowStockThreshold);
   const cfg = STATUS_BADGE[status];
   const Icon = cfg.icon;
   return (
@@ -215,6 +218,8 @@ export default function InventoryPage() {
   const units = useMasterDataStore(s => s.units);
   const fetchMasterData = useMasterDataStore(s => s.fetchAll);
   const { items, loading, fetchAll, create, update, adjustStock, remove } = useInventoryStore();
+  const lowStockThreshold = useSettingsStore(s => s.lowStockThreshold ?? 2)
+
 
   useEffect(() => {
     fetchAll();
@@ -228,9 +233,9 @@ export default function InventoryPage() {
 
   // ── Derived stats ──────────────────────────────────────────────────────
   const totalValue = useMemo(() => calcTotalValue(items), [items]);
-  const inStockCount = useMemo(() => calcInStockCount(items), [items]);
-  const lowStockCount = useMemo(() => calcLowStockCount(items), [items]);
-  const outOfStockCount = useMemo(() => calcOutOfStockCount(items), [items]);
+  const inStockCount = useMemo(() => calcInStockCount(items, lowStockThreshold), [items, lowStockThreshold]);
+  const lowStockCount = useMemo(() => calcLowStockCount(items, lowStockThreshold), [items, lowStockThreshold]);
+  const outOfStockCount = useMemo(() => calcOutOfStockCount(items, lowStockThreshold), [items, lowStockThreshold]);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -256,7 +261,7 @@ export default function InventoryPage() {
     return items
       .filter(i => {
         const matchSearch = !q || i.itemName.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q);
-        const status = getStockStatus(i);
+        const status = getStockStatus(i, lowStockThreshold);
         const matchStatus = statusFilter === 'all' || status === statusFilter;
         return matchSearch && matchStatus;
       })
@@ -418,7 +423,7 @@ export default function InventoryPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
               {pageItems.map(item => {
-                const status = getStockStatus(item);
+                const status = getStockStatus(item, lowStockThreshold);
                 const cfg = STATUS_BADGE[status];
                 const Icon = cfg.icon;
                 return (

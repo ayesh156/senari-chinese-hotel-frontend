@@ -119,7 +119,7 @@ export default function OrderSuccessPage() {
                 label={`Discount${discountType === 'percentage' ? '' : ' (Fixed)'}`}
                 value={
                   <span className="text-green-600 dark:text-green-400">
-                    − Rs. {Number(discountAmount).toLocaleString('en-LK')}
+                    − {fmtCurrencyDirect(discountAmount)}
                   </span>
                 }
               />
@@ -127,7 +127,7 @@ export default function OrderSuccessPage() {
                 label="Grand Total"
                 value={
                   <span className="text-amber-600 font-extrabold text-base">
-                    Rs. {Number(grandTotal).toLocaleString('en-LK')}
+                    {fmtCurrencyDirect(grandTotal)}
                   </span>
                 }
               />

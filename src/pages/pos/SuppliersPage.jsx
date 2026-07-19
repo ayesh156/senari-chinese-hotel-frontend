@@ -9,6 +9,7 @@ import ModernPagination from '../../components/ui/ModernPagination'
 import { useMasterDataStore, buildSelectOptions } from '../../utils/masterDataStore'
 import { useSupplierStore } from '../../utils/supplierStore'
 import SupplierHistoryModal from '../../components/pos/SupplierHistoryModal'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
 const PAGE_SIZE = 8
 
@@ -133,9 +134,11 @@ function DeleteModal({ supplier, onConfirm, onCancel }) {
 
 function SettlePaymentModal({ supplier, onConfirm, onCancel }) {
   const maxPayable = supplier.payableAmount; const [amount, setAmount] = useState(String(maxPayable)); const [error, setError] = useState(''); const inputRef = useRef(null)
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
+
   useEffect(() => { setTimeout(() => inputRef.current?.select(), 50) }, [])
   const parsed = parseFloat(amount) || 0; const isPartial = parsed > 0 && parsed < maxPayable; const remaining = Math.max(0, maxPayable - parsed)
-  function handleSubmit(e) { e.preventDefault(); if (!amount.trim() || parsed <= 0) { setError('Enter a payment amount greater than 0.'); return } if (parsed > maxPayable) { setError(`Cannot exceed payable of Rs. ${maxPayable.toLocaleString('en-LK')}.`); return } onConfirm(parsed) }
+  function handleSubmit(e) { e.preventDefault(); if (!amount.trim() || parsed <= 0) { setError('Enter a payment amount greater than 0.'); return } if (parsed > maxPayable) { setError(`Cannot exceed payable of ${fmtCurrencyDirect(maxPayable.toLocaleString('en-LK'))}.`); return } onConfirm(parsed) }
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="rounded-2xl max-w-md w-full shadow-2xl border overflow-hidden bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700/50 max-h-[90vh] flex flex-col">
@@ -144,16 +147,16 @@ function SettlePaymentModal({ supplier, onConfirm, onCancel }) {
         </div>
         <form onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="p-5 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
-            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"><span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Payable to Supplier</span><span className="text-lg font-extrabold text-amber-700 dark:text-amber-400 tabular-nums">Rs. {maxPayable.toLocaleString('en-LK')}</span></div>
+            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"><span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Payable to Supplier</span><span className="text-lg font-extrabold text-amber-700 dark:text-amber-400 tabular-nums">{fmtCurrencyDirect(maxPayable)}</span></div>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between"><label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payment Amount</label><button type="button" onClick={() => { setAmount(String(maxPayable)); setError('') }} className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800">Pay Full</button></div>
-              <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">Rs.</span><input ref={inputRef} type="number" min="1" max={maxPayable} step="1" value={amount} onChange={e => { setAmount(e.target.value); setError('') }} className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold bg-white dark:bg-gray-800 border text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${error ? 'border-red-400 focus:ring-red-400/30' : 'border-gray-200 dark:border-gray-700 focus:ring-green-400/40'}`} /></div>
+              <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">{currencySymbol}</span><input ref={inputRef} type="number" min="1" max={maxPayable} step="1" value={amount} onChange={e => { setAmount(e.target.value); setError('') }} className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold bg-white dark:bg-gray-800 border text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${error ? 'border-red-400 focus:ring-red-400/30' : 'border-gray-200 dark:border-gray-700 focus:ring-green-400/40'}`} /></div>
               {error && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11} />{error}</p>}
             </div>
             {parsed > 0 && parsed <= maxPayable && (
               <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${isPartial ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
                 <span className={`text-xs font-bold uppercase tracking-wide ${isPartial ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>{isPartial ? 'Remaining Payable' : 'Fully Paid ✓'}</span>
-                <span className={`text-sm font-extrabold tabular-nums ${isPartial ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>{isPartial ? `Rs. ${remaining.toLocaleString('en-LK')}` : 'Rs. 0'}</span>
+                <span className={`text-sm font-extrabold tabular-nums ${isPartial ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>{isPartial ? fmtCurrencyDirect(remaining) : fmtCurrencyDirect(0)}</span>
               </div>
             )}
           </div>
@@ -236,7 +239,7 @@ export default function SuppliersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div><h1 className="text-2xl font-bold text-gray-900 dark:text-white">Suppliers</h1><p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{suppliers.length} vendors · {withPayableCount} with outstanding payables{loading && <span className="ml-2 text-amber-500">(loading…)</span>}</p></div>
         <div className="flex items-center gap-3 flex-wrap">
-          {totalPayable > 0 && <div className="flex items-center gap-2 px-4 py-2 rounded-xl shrink-0 bg-amber-500/10 border border-amber-500/20"><AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" /><span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Total Payable:</span><span className="text-sm font-extrabold text-amber-700 dark:text-amber-400 tabular-nums">Rs. {totalPayable.toLocaleString('en-LK')}</span></div>}
+          {totalPayable > 0 && <div className="flex items-center gap-2 px-4 py-2 rounded-xl shrink-0 bg-amber-500/10 border border-amber-500/20"><AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" /><span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Total Payable:</span><span className="text-sm font-extrabold text-amber-700 dark:text-amber-400 tabular-nums">{fmtCurrencyDirect(totalPayable)}</span></div>}
           <button type="button" onClick={() => setFormTarget({})} className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm shrink-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90 transition-opacity shadow-md shadow-amber-500/20 w-full sm:w-auto"><Plus size={16} /> Add Supplier</button>
         </div>
       </div>
@@ -247,7 +250,7 @@ export default function SuppliersPage() {
           <div className="w-9 h-9 rounded-xl bg-red-500 flex items-center justify-center shrink-0"><AlertTriangle size={16} className="text-white" /></div><div className="min-w-0"><p className="text-xl font-extrabold text-gray-900 dark:text-white tabular-nums">{withPayableCount}</p><p className="text-xs text-gray-500 dark:text-gray-400 truncate">With Payables</p></div>
         </button>
         <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border-2 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-orange-500/10 border-amber-200 dark:border-amber-500/30">
-          <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shrink-0"><TrendingUp size={16} className="text-white" /></div><div className="min-w-0"><p className="text-base sm:text-lg font-extrabold text-amber-700 dark:text-amber-400 tabular-nums truncate">Rs. {totalPurchases.toLocaleString('en-LK')}</p><p className="text-xs text-gray-600 dark:text-gray-400 truncate">Total Purchases</p></div>
+          <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shrink-0"><TrendingUp size={16} className="text-white" /></div><div className="min-w-0"><p className="text-base sm:text-lg font-extrabold text-amber-700 dark:text-amber-400 tabular-nums truncate">{fmtCurrencyDirect(totalPurchases)}</p><p className="text-xs text-gray-600 dark:text-gray-400 truncate">Total Purchases</p></div>
         </div>
       </div>
 
@@ -285,10 +288,10 @@ export default function SuppliersPage() {
                       </div>
                       <CategoryPill category={supplier.category} />
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="flex flex-col gap-0.5 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20"><p className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Purchases</p><p className="text-xs font-extrabold text-gray-900 dark:text-gray-100 tabular-nums truncate">Rs. {(supplier.totalPurchases || 0) >= 1000 ? `${((supplier.totalPurchases || 0) / 1000).toFixed(1)}k` : (supplier.totalPurchases || 0).toLocaleString('en-LK')}</p></div>
-                        <div className={`flex flex-col gap-0.5 px-3 py-2 rounded-xl ${hasPayable ? 'bg-red-50 dark:bg-red-900/20' : 'bg-gray-50 dark:bg-gray-800/50'}`}><p className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Payable</p><p className={`text-xs font-extrabold tabular-nums truncate ${hasPayable ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-600'}`}>{hasPayable ? `Rs. ${(supplier.payableAmount || 0) >= 1000 ? `${((supplier.payableAmount || 0) / 1000).toFixed(1)}k` : (supplier.payableAmount || 0).toLocaleString('en-LK')}` : '—'}</p></div>
+                        <div className="flex flex-col gap-0.5 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20"><p className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Purchases</p><p className="text-xs font-extrabold text-gray-900 dark:text-gray-100 tabular-nums truncate">{fmtCurrencyDirect(supplier.totalPurchases || 0)}</p></div>
+                        <div className={`flex flex-col gap-0.5 px-3 py-2 rounded-xl ${hasPayable ? 'bg-red-50 dark:bg-red-900/20' : 'bg-gray-50 dark:bg-gray-800/50'}`}><p className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Payable</p><p className={`text-xs font-extrabold tabular-nums truncate ${hasPayable ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-600'}`}>{hasPayable ? fmtCurrencyDirect(supplier.payableAmount || 0) : '—'}</p></div>
                       </div>
-                      {hasPayable && <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"><div className="flex items-center gap-1.5"><AlertTriangle size={11} className="text-red-500 shrink-0" /><span className="text-xs font-semibold text-red-600 dark:text-red-400">Outstanding</span></div><span className="text-xs font-extrabold text-red-600 dark:text-red-400 tabular-nums">Rs. {(supplier.payableAmount || 0).toLocaleString('en-LK')}</span></div>}
+                      {hasPayable && <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"><div className="flex items-center gap-1.5"><AlertTriangle size={11} className="text-red-500 shrink-0" /><span className="text-xs font-semibold text-red-600 dark:text-red-400">Outstanding</span></div><span className="text-xs font-extrabold text-red-600 dark:text-red-400 tabular-nums">{fmtCurrencyDirect((supplier.payableAmount || 0))}</span></div>}
                     </div>
                     <div className="shrink-0 px-3 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex items-center gap-1.5 flex-wrap">
                       <button type="button" onClick={() => setFormTarget(supplier)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 transition-colors"><Pencil size={11} /> Edit</button>
@@ -318,10 +321,10 @@ export default function SuppliersPage() {
                       <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold shrink-0">{supplier.name?.charAt(0).toUpperCase() || 'S'}</div><p className="font-semibold text-gray-900 dark:text-white whitespace-nowrap">{supplier.name}</p></div></td>
                       <td className="px-4 py-3 whitespace-nowrap"><CategoryPill category={supplier.category} /></td>
                       <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums">{supplier.phone}</td>
-                      <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-white">Rs. {(supplier.totalPurchases || 0).toLocaleString('en-LK')}</td>
+                      <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-white">{fmtCurrencyDirect((supplier.totalPurchases || 0))}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {hasPayable ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tabular-nums bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"><AlertTriangle size={10} />Rs. {(supplier.payableAmount || 0).toLocaleString('en-LK')}</span>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tabular-nums bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"><AlertTriangle size={10} />{fmtCurrencyDirect((supplier.payableAmount || 0))}</span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20"><CheckCircle2 size={10} /> Paid</span>
                         )}

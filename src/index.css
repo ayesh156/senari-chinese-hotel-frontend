@@ -19,6 +19,15 @@
   to   { opacity: 1; transform: translate(-50%, 0);    }
 }
 
+/* ── Slide-up animation for mobile bottom sheets ── */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0);    }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
 /* ── PIN shake animation (wrong PIN feedback) ── */
 @keyframes shake {
   0%, 100% { transform: translateX(0);    }

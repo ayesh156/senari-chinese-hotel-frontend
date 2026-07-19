@@ -4,10 +4,11 @@ import { User, Phone, CalendarDays, Clock, ShoppingBag, ChevronRight, Tag } from
 import { useCartStore, selectSubtotal } from '../../utils/store'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
 import ModernSelect from '../../components/ui/ModernSelect'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
 const DISCOUNT_TYPE_OPTIONS = [
   { value: 'percentage', label: '%  Percentage' },
-  { value: 'fixed',      label: 'Rs. Fixed Amount' },
+  { value: 'fixed',      label: 'Fixed Amount' },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ function SummaryItem({ item }) {
         <p className="text-xs text-gray-400 dark:text-gray-500">× {item.quantity}</p>
       </div>
       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 shrink-0">
-        Rs. {(item.price * item.quantity).toLocaleString('en-LK')}
+        {fmtCurrencyDirect(item.price * item.quantity)}
       </p>
     </li>
   )
@@ -141,7 +142,8 @@ export default function CheckoutPage() {
   const handleSubmit = (e) => {
     e.preventDefault()
     const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs); return }
+    if (Object.keys(errs).length) { setErrors(errs);
+    return }
 
     const orderId = `ORD-${Math.floor(100 + Math.random() * 900)}`
     clearCart()
@@ -259,7 +261,7 @@ export default function CheckoutPage() {
                 {/* Live saving preview */}
                 {discountAmount > 0 && (
                   <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    ✓ Saving Rs. {discountAmount.toLocaleString('en-LK')}
+                    ✓ Saving {fmtCurrencyDirect(discountAmount)}
                     {discountType === 'percentage' && ` (${discountValue}%)`}
                   </p>
                 )}
@@ -333,7 +335,7 @@ export default function CheckoutPage() {
                 {/* Subtotal */}
                 <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
                   <span>Subtotal</span>
-                  <span>Rs. {subtotal.toLocaleString('en-LK')}</span>
+                  <span>{fmtCurrencyDirect(subtotal)}</span>
                 </div>
 
                 {/* Discount row — only shown when a discount is applied */}
@@ -344,7 +346,7 @@ export default function CheckoutPage() {
                       {discountType === 'percentage' && ` (${discountValue}%)`}
                     </span>
                     <span className="text-red-500 dark:text-red-400">
-                      − Rs. {discountAmount.toLocaleString('en-LK')}
+                      − {fmtCurrencyDirect(discountAmount)}
                     </span>
                   </div>
                 )}
@@ -354,7 +356,7 @@ export default function CheckoutPage() {
                                 text-base pt-1 border-t border-gray-100 dark:border-gray-800">
                   <span>Grand Total</span>
                   <span className="text-amber-600">
-                    Rs. {grandTotal.toLocaleString('en-LK')}
+                    {fmtCurrencyDirect(grandTotal)}
                   </span>
                 </div>
               </div>

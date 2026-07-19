@@ -1,168 +1,65 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { ChefHat, Delete, LogIn, AlertCircle, ShieldCheck } from 'lucide-react'
-import { useAuthStore, STAFF_ACCOUNTS } from '../../utils/authStore'
-
-// ── PIN Pad digit button ──────────────────────────────────────────────────────
-function PinKey({ label, sub, onClick, danger }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        flex flex-col items-center justify-center
-        h-14 rounded-2xl text-lg font-bold
-        transition-all duration-100 active:scale-95 select-none
-        ${danger
-          ? `text-red-500 dark:text-red-400
-             bg-red-50 dark:bg-red-900/20
-             hover:bg-red-100 dark:hover:bg-red-900/40
-             border border-red-200 dark:border-red-800`
-          : `text-gray-900 dark:text-gray-100
-             bg-white dark:bg-gray-800
-             hover:bg-amber-50 dark:hover:bg-gray-700
-             border border-gray-200 dark:border-gray-700
-             shadow-sm hover:shadow-md hover:-translate-y-px`
-        }
-      `}
-    >
-      <span>{label}</span>
-      {sub && <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 tracking-widest -mt-0.5">{sub}</span>}
-    </button>
-  )
-}
-
-// ── PIN dot display ───────────────────────────────────────────────────────────
-function PinDots({ length, filled, shake }) {
-  return (
-    <div className={`flex items-center justify-center gap-3 h-8 ${shake ? 'animate-[shake_0.35s_ease-in-out]' : ''}`}>
-      {Array.from({ length }).map((_, i) => (
-        <div
-          key={i}
-          className={`w-3 h-3 rounded-full transition-all duration-150
-                      ${i < filled
-                        ? 'bg-amber-500 scale-110 shadow-md shadow-amber-500/40'
-                        : 'bg-gray-200 dark:bg-gray-700'
-                      }`}
-        />
-      ))}
-    </div>
-  )
-}
-
-// ── Staff selector card ───────────────────────────────────────────────────────
-function StaffCard({ staff, selected, onClick }) {
-  const roleColor = staff.role === 'ADMIN'
-    ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
-    : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        flex flex-col items-center gap-2 p-4 rounded-2xl border-2
-        transition-all duration-150 active:scale-95
-        ${selected
-          ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-md shadow-amber-500/20'
-          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-amber-300 dark:hover:border-amber-700'
-        }
-      `}
-    >
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center
-                       text-white text-lg font-extrabold shadow-sm
-                       ${selected ? 'bg-amber-500' : 'bg-gray-400 dark:bg-gray-600'}`}>
-        {staff.avatar}
-      </div>
-      <p className={`text-sm font-semibold truncate max-w-[80px]
-                     ${selected ? 'text-amber-700 dark:text-amber-400' : 'text-gray-700 dark:text-gray-300'}`}>
-        {staff.name}
-      </p>
-      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${roleColor}`}>
-        {staff.role}
-      </span>
-    </button>
-  )
-}
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ChefHat, LogIn, AlertCircle, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useAuthStore } from '../../utils/authStore';
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-const PIN_LENGTH = 4
-
 export default function StaffLoginPage() {
-  const navigate  = useNavigate()
-  const location  = useLocation()
-  const login     = useAuthStore(s => s.login)
+  const navigate = useNavigate();
+  const location = useLocation();
+  const login = useAuthStore((s) => s.login);
+  const error = useAuthStore((s) => s.error);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const clearError = useAuthStore((s) => s.clearError);
 
   // Where to go after successful login (default: POS dashboard)
-  const from = location.state?.from?.pathname ?? '/pos/dashboard'
+  const from = location.state?.from?.pathname ?? '/pos/dashboard';
 
-  const [selectedStaff, setSelectedStaff] = useState(STAFF_ACCOUNTS[0])
-  const [pin,           setPin]           = useState('')
-  const [error,         setError]         = useState('')
-  const [shake,         setShake]         = useState(false)
-  const [isLogging,     setIsLogging]     = useState(false)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState('');
 
-  // Clear error when staff or pin changes
-  useEffect(() => { setError('') }, [selectedStaff, pin])
-
-  // ── PIN pad handlers ──────────────────────────────────────────────────────
-  const appendDigit = useCallback((d) => {
-    setPin(prev => prev.length < PIN_LENGTH ? prev + d : prev)
-  }, [])
-
-  const deleteDigit = useCallback(() => {
-    setPin(prev => prev.slice(0, -1))
-  }, [])
-
-  const clearPin = useCallback(() => setPin(''), [])
-
-  // ── Submit ────────────────────────────────────────────────────────────────
-  const handleLogin = useCallback(() => {
-    if (pin.length < PIN_LENGTH) {
-      setError(`Enter your ${PIN_LENGTH}-digit PIN`)
-      triggerShake()
-      return
-    }
-    if (pin !== selectedStaff.pin) {
-      setError('Incorrect PIN. Please try again.')
-      triggerShake()
-      setPin('')
-      return
-    }
-    setIsLogging(true)
-    // Small delay for visual feedback
-    setTimeout(() => {
-      login({ id: selectedStaff.id, name: selectedStaff.name, role: selectedStaff.role, avatar: selectedStaff.avatar })
-      navigate(from, { replace: true })
-    }, 350)
-  }, [pin, selectedStaff, login, navigate, from])
-
-  function triggerShake() {
-    setShake(true)
-    setTimeout(() => setShake(false), 400)
-  }
-
-  // Auto-submit when PIN is fully entered
+  // Clear error when inputs change
   useEffect(() => {
-    if (pin.length === PIN_LENGTH) handleLogin()
-  }, [pin]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (localError) setLocalError('');
+    if (error) clearError();
+  }, [email, password]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keyboard support
+  // If already authenticated, redirect immediately
   useEffect(() => {
-    const handler = (e) => {
-      if (e.key >= '0' && e.key <= '9') appendDigit(e.key)
-      else if (e.key === 'Backspace')    deleteDigit()
-      else if (e.key === 'Escape')       clearPin()
-      else if (e.key === 'Enter')        handleLogin()
+    if (isAuthenticated && !isSubmitting) {
+      navigate(from, { replace: true });
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [appendDigit, deleteDigit, clearPin, handleLogin])
+  }, [isAuthenticated, isSubmitting, navigate, from]);
 
-  const PIN_KEYS = [
-    ['1',''],['2','ABC'],['3','DEF'],
-    ['4','GHI'],['5','JKL'],['6','MNO'],
-    ['7','PQRS'],['8','TUV'],['9','WXYZ'],
-    ['*',''],['0',''],['⌫',''],
-  ]
+  // ── Submit handler ──────────────────────────────────────────────────────────
+  const handleLogin = useCallback(
+    async (e) => {
+      e.preventDefault();
+
+      if (!email.trim() || !password.trim()) {
+        setLocalError('Please enter your email and password.');
+        return;
+      }
+
+      setIsSubmitting(true);
+      setLocalError('');
+
+      const result = await login(email.trim(), password);
+
+      if (result.success) {
+        navigate(from, { replace: true });
+      } else {
+        setLocalError(result.error || 'Login failed. Please try again.');
+      }
+
+      setIsSubmitting(false);
+    },
+    [email, password, login, navigate, from]
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center
@@ -185,94 +82,99 @@ export default function StaffLoginPage() {
           </p>
         </div>
 
-        {/* Staff selector */}
-        <div>
-          <p className="text-xs font-bold text-gray-400 dark:text-gray-500
-                        uppercase tracking-widest mb-3 text-center">
-            Select Staff
+        {/* Login form */}
+        <form
+          onSubmit={handleLogin}
+          className="bg-white dark:bg-gray-900 rounded-2xl border
+                     border-gray-200 dark:border-gray-800 shadow-sm p-5"
+        >
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-4">
+            Staff Sign In
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {STAFF_ACCOUNTS.map(s => (
-              <StaffCard
-                key={s.id}
-                staff={s}
-                selected={selectedStaff.id === s.id}
-                onClick={() => { setSelectedStaff(s); setPin('') }}
+
+          {/* Error message */}
+          {(localError || error) && (
+            <div className="flex items-center gap-2 mb-4 p-3 rounded-xl
+                            bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <AlertCircle size={14} className="text-red-500 shrink-0" />
+              <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                {localError || error}
+              </p>
+            </div>
+          )}
+
+          {/* Email field */}
+          <div className="mb-4">
+            <label htmlFor="email" className="text-xs font-bold text-gray-500 dark:text-gray-400
+                                              uppercase tracking-widest mb-2 block">
+              Email
+            </label>
+            <div className="relative">
+              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2
+                                         text-gray-400 dark:text-gray-500" />
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="admin@senari.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm
+                           bg-gray-50 dark:bg-gray-800
+                           border border-gray-200 dark:border-gray-700
+                           text-gray-900 dark:text-gray-100
+                           placeholder:text-gray-400 dark:placeholder:text-gray-600
+                           focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500
+                           transition-colors"
+                disabled={isSubmitting}
               />
-            ))}
-          </div>
-        </div>
-
-        {/* PIN entry */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border
-                        border-gray-200 dark:border-gray-800 shadow-sm p-5">
-
-          {/* Greeting */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center
-                            text-white text-xs font-bold shrink-0">
-              {selectedStaff.avatar}
             </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                {selectedStaff.name}
-              </p>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                Enter your {PIN_LENGTH}-digit PIN
-              </p>
+          </div>
+
+          {/* Password field */}
+          <div className="mb-5">
+            <label htmlFor="password" className="text-xs font-bold text-gray-500 dark:text-gray-400
+                                                 uppercase tracking-widest mb-2 block">
+              Password
+            </label>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2
+                                         text-gray-400 dark:text-gray-500" />
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl text-sm
+                           bg-gray-50 dark:bg-gray-800
+                           border border-gray-200 dark:border-gray-700
+                           text-gray-900 dark:text-gray-100
+                           placeholder:text-gray-400 dark:placeholder:text-gray-600
+                           focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500
+                           transition-colors"
+                disabled={isSubmitting}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2
+                           text-gray-400 dark:text-gray-500
+                           hover:text-gray-600 dark:hover:text-gray-300
+                           transition-colors"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
-            <ShieldCheck size={16} className="ml-auto text-amber-500 shrink-0" />
           </div>
 
-          {/* PIN dots */}
-          <PinDots length={PIN_LENGTH} filled={pin.length} shake={shake} />
-
-          {/* Error */}
-          <div className={`flex items-center justify-center gap-1.5 mt-2 h-5
-                           transition-opacity duration-200 ${error ? 'opacity-100' : 'opacity-0'}`}>
-            <AlertCircle size={12} className="text-red-500 shrink-0" />
-            <p className="text-xs text-red-500 font-medium">{error || ' '}</p>
-          </div>
-
-          {/* PIN pad */}
-          <div className="grid grid-cols-3 gap-2 mt-4">
-            {PIN_KEYS.map(([label, sub]) => {
-              if (label === '⌫') {
-                return (
-                  <PinKey
-                    key="del"
-                    label={<Delete size={18} />}
-                    onClick={deleteDigit}
-                    danger
-                  />
-                )
-              }
-              if (label === '*') {
-                return (
-                  <PinKey
-                    key="clear"
-                    label="C"
-                    onClick={clearPin}
-                    danger
-                  />
-                )
-              }
-              return (
-                <PinKey
-                  key={label}
-                  label={label}
-                  sub={sub}
-                  onClick={() => appendDigit(label)}
-                />
-              )
-            })}
-          </div>
-
-          {/* Login button */}
+          {/* Submit button */}
           <button
-            onClick={handleLogin}
-            disabled={pin.length < PIN_LENGTH || isLogging}
-            className="mt-4 w-full flex items-center justify-center gap-2
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full flex items-center justify-center gap-2
                        py-3 rounded-2xl font-bold text-sm
                        bg-gradient-to-r from-amber-500 to-orange-500 text-white
                        shadow-lg shadow-amber-500/30
@@ -280,11 +182,11 @@ export default function StaffLoginPage() {
                        disabled:opacity-40 disabled:cursor-not-allowed
                        transition-all duration-150"
           >
-            {isLogging ? (
+            {isSubmitting ? (
               <>
                 <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                 </svg>
                 Signing in…
               </>
@@ -295,7 +197,7 @@ export default function StaffLoginPage() {
               </>
             )}
           </button>
-        </div>
+        </form>
 
         {/* Footer hint */}
         <p className="text-center text-[11px] text-gray-400 dark:text-gray-600">
@@ -303,5 +205,5 @@ export default function StaffLoginPage() {
         </p>
       </div>
     </div>
-  )
+  );
 }

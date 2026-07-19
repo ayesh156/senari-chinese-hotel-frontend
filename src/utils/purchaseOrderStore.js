@@ -1,4 +1,5 @@
 import { toast } from 'react-toastify';
+import { fmtCurrencyDirect } from './currency';
 import { create } from 'zustand';
 import { purchaseOrderApi } from '../api/purchaseOrder.api';
 
@@ -84,7 +85,7 @@ export const usePurchaseOrderStore = create((set, get) => ({
       const json = await purchaseOrderApi.settle(id, amount, paymentMethod, notes);
       if (json.success) {
         await get().fetchAll();
-        toast.success(`Payment of Rs. ${amount.toLocaleString('en-LK')} recorded`);
+        toast.success(`Payment of Rss. ${fmtCurrencyDirect(amount)} recorded`);
         return { success: true, data: json.data };
       }
       toast.error(json.error || 'Settlement failed');

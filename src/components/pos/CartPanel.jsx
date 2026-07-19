@@ -1,6 +1,7 @@
 import { ShoppingCart } from 'lucide-react';
 import SearchableSelect from '../ui/SearchableSelect';
 import CartRow from './CartRow';
+import { useSettingsStore } from '../../utils/settingsStore';
 
 const DEFAULT_CUSTOMER_OPTIONS = [
   { value: 'walk-in', label: 'Walk-in Customer' },
@@ -15,6 +16,7 @@ export default function CartPanel({
   customerCash, onCustomerCash, customerCashInputRef,
   ctaLabel, maxDiscountPercent, customerOptions,
 }) {
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
   const options = customerOptions && customerOptions.length > 0 ? customerOptions : DEFAULT_CUSTOMER_OPTIONS;
   const subtotal = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const count = cartItems.reduce((s, i) => s + i.quantity, 0);
@@ -84,7 +86,7 @@ export default function CartPanel({
           </div>
           <div className="flex gap-1.5">
             <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shrink-0">
-              {['%', 'Rs.'].map((t) => (
+              {['%', 'fixed'].map((t) => (
                 <button key={t} onClick={() => { onDiscountType(t); onDiscount('') }}
                   className={`px-2.5 py-2 text-xs font-bold transition-colors ${discountType === t ? 'bg-amber-500 text-white' : 'bg-gray-50 dark:bg-gray-800 text-gray-500'}`}>{t}</button>
               ))}
@@ -98,25 +100,25 @@ export default function CartPanel({
             className={`w-full px-3 py-2 rounded-xl text-sm bg-gray-50 dark:bg-gray-800 border text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition-all ${hasChange ? 'border-emerald-400 dark:border-emerald-500' : isShort ? 'border-red-400' : 'border-gray-200 dark:border-gray-700 focus:border-amber-400'}`} />
           {givenCash > 0 && (
             <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${hasChange ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700' : 'bg-red-50 dark:bg-red-900/20 text-red-600'}`}>
-              {hasChange ? 'Change' : 'Short by'}: Rs. {fmt(Math.abs(change))}
+              {hasChange ? 'Change' : 'Short by'}: {currencySymbol} {fmt(Math.abs(change))}
             </div>
           )}
         </div>
         <div className="space-y-1">
           <div className="flex justify-between">
             <span className="text-xs text-gray-400">Subtotal</span>
-            <span className="text-xs font-semibold text-gray-600">Rs. {fmt(subtotal)}</span>
+            <span className="text-xs font-semibold text-gray-600">{currencySymbol} {fmt(subtotal)}</span>
           </div>
           {discountAmt > 0 && (
             <div className="flex justify-between">
               <span className="text-xs font-medium text-emerald-600">Discount</span>
-              <span className="text-xs font-semibold text-emerald-600">− Rs. {fmt(discountAmt)}</span>
+              <span className="text-xs font-semibold text-emerald-600">− {currencySymbol} {fmt(discountAmt)}</span>
             </div>
           )}
           <div className="border-t border-dashed border-gray-200 pt-2">
             <div className="flex justify-between">
               <span className="text-sm font-bold text-gray-900">Total</span>
-              <span className="text-xl font-extrabold text-amber-600 tabular-nums">Rs. {fmt(total)}</span>
+              <span className="text-xl font-extrabold text-amber-600 tabular-nums">{currencySymbol} {fmt(total)}</span>
             </div>
           </div>
         </div>

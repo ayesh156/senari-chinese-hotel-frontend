@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, X } from 'lucide-react';
 import SearchableSelect from '../ui/SearchableSelect';
+import { useSettingsStore } from '../../utils/settingsStore';
 
 const EMPTY_ITEM = {
   itemName: '',
@@ -22,6 +23,7 @@ const EMPTY_ITEM = {
  */
 export default function InventoryFormModal({ inventoryItems = [], initialItem, categoryOptions, unitOptions, onSave, onCancel }) {
   const isEdit = Boolean(initialItem?.id);
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
 
   // Auto-generate next SKU: parse highest numeric suffix from existing items
   const nextSku = useMemo(() => {
@@ -205,7 +207,7 @@ export default function InventoryFormModal({ inventoryItems = [], initialItem, c
                 </label>
                 <input type="number" min="0" step="any" value={form.unitPrice}
                   onChange={e => set('unitPrice')(e.target.value)}
-                  placeholder="Rs." className={inputCls(!!errors.unitPrice)} />
+                  placeholder={currencySymbol || 'Rs.'} className={inputCls(!!errors.unitPrice)} />
                 {errors.unitPrice && <p className="text-xs text-red-500 mt-1">{errors.unitPrice}</p>}
               </div>
               <div>

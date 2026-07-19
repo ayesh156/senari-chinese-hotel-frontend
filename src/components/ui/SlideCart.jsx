@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react'
 import { useCartStore, selectCartCount, selectSubtotal } from '../../utils/store'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
+import { fmtCurrencyDirect } from '../../utils/currency'
 
 // ── Cart Item Row ─────────────────────────────────────────────────────────────
 function CartItem({ item }) {
@@ -29,7 +30,7 @@ function CartItem({ item }) {
           {item.category}
         </p>
         <p className="text-sm font-bold text-amber-600 mt-1">
-          Rs. {Number(item.price).toLocaleString('en-LK')}
+          {fmtCurrencyDirect(item.price)}
         </p>
       </div>
 
@@ -196,7 +197,7 @@ export default function SlideCart() {
                 Subtotal ({count} {count === 1 ? 'item' : 'items'})
               </span>
               <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                Rs. {subtotal.toLocaleString('en-LK')}
+                {fmtCurrencyDirect(subtotal)}
               </span>
             </div>
 

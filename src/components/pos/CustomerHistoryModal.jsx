@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { History, X, Loader2, AlertTriangle, Phone, Banknote, Bell } from 'lucide-react';
 import { customerApi } from '../../api/customer.api';
 import ModernPagination from '../ui/ModernPagination';
+import { fmtCurrencyDirect } from '../../utils/currency';
 
 const PER_PAGE = 8;
+
+const fmt = fmtCurrencyDirect;
 
 function fmtDateTime(iso) {
   const d = new Date(iso);
@@ -13,9 +16,7 @@ function fmtDateTime(iso) {
   };
 }
 
-function fmtCurrency(n) {
-  return `Rs. ${Number(n).toLocaleString('en-LK')}`;
-}
+const fmtCurrency = fmtCurrencyDirect;
 
 export default function CustomerHistoryModal({ customer, type = 'reminders', onCancel }) {
   const [records, setRecords] = useState([]);

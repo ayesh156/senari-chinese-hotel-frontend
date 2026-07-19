@@ -7,6 +7,10 @@ import {
 import { useMasterDataStore } from '../../utils/masterDataStore'
 import { useFoodStore } from '../../utils/foodStore'
 import SearchableSelect from '../../components/ui/SearchableSelect'
+import { fmtCurrencyDirect } from '../../utils/currency'
+
+import { useSettingsStore } from '../../utils/settingsStore'
+
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -192,6 +196,8 @@ export default function FoodFormPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEditing = Boolean(id)
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
+
 
   const foodCategories = useMasterDataStore(s => s.foodCategories)
   const { foods, loading, create, update } = useFoodStore()
@@ -337,9 +343,9 @@ export default function FoodFormPage() {
                 <textarea rows={4} value={form.description} onChange={e => set('description')(e.target.value)} placeholder="Describe the dish…" className={`${inputCls(false)} resize-none`} />
               </div>
               <div>
-                <FieldLabel icon={DollarSign} required>Price (Rs.)</FieldLabel>
+                <FieldLabel icon={DollarSign} required>Price ({currencySymbol})</FieldLabel>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 dark:text-gray-500 pointer-events-none">Rs.</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 dark:text-gray-500 pointer-events-none">{currencySymbol}</span>
                   <input type="number" min="1" step="1" value={form.price} onChange={e => set('price')(e.target.value)} placeholder="0" className={`${inputCls(errors.price)} pl-10`} />
                 </div>
                 <FieldError msg={errors.price} />
@@ -364,7 +370,7 @@ export default function FoodFormPage() {
               {form.price && Number(form.price) > 0 && (
                 <div className="p-4 rounded-2xl border bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-500/20">
                   <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">Price Preview</p>
-                  <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">Rs. {Number(form.price).toLocaleString('en-LK')}</p>
+                  <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">{fmtCurrencyDirect(form.price)}</p>
                 </div>
               )}
             </div>

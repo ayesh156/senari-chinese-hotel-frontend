@@ -6,11 +6,13 @@ import { toast } from 'react-toastify';
 import { create } from 'zustand';
 import { inventoryApi } from '../api/inventory.api';
 
-export function getStockStatus(item) {
+export function getStockStatus(item, globalThreshold) {
   const qty = Number(item.quantityInStock ?? item.quantity ?? 0);
-  const min = Number(item.minAlertLevel ?? item.minStockLevel ?? 0);
   if (qty <= 0) return 'out';
-  if (qty <= min) return 'low';
+  // Use item-specific minAlert if it exists and is > 0, otherwise use global fallback
+  const itemMin = Number(item.minAlertLevel ?? item.minStockLevel ?? 0);
+  const threshold = (itemMin > 0) ? itemMin : (globalThreshold ?? 0);
+  if (qty <= threshold) return 'low';
   return 'in';
 }
 
@@ -120,12 +122,12 @@ export const useInventoryStore = create((set, get) => ({
 export function calcTotalValue(items) {
   return items.reduce((sum, item) => sum + getStockValue(item), 0);
 }
-export function calcInStockCount(items) {
-  return items.filter(item => getStockStatus(item) === 'in').length;
+export function calcInStockCount(items, globalThreshold) {
+  return items.filter(item => getStockStatus(item, globalThreshold) === 'in').length;
 }
-export function calcLowStockCount(items) {
-  return items.filter(item => getStockStatus(item) === 'low').length;
+export function calcLowStockCount(items, globalThreshold) {
+  return items.filter(item => getStockStatus(item, globalThreshold) === 'low').length;
 }
-export function calcOutOfStockCount(items) {
-  return items.filter(item => getStockStatus(item) === 'out').length;
+export function calcOutOfStockCount(items, globalThreshold) {
+  return items.filter(item => getStockStatus(item, globalThreshold) === 'out').length;
 }
