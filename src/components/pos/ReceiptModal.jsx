@@ -32,7 +32,7 @@ export default function ReceiptModal({ isOpen, onClose, order }) {
   const reportTagline = useSettingsStore(s => s.reportTagline)
   const currencySymbol = useSettingsStore(s => s.currencySymbol)
   const website = useSettingsStore(s => s.website || 'www.senarichinese.lk')
-  const address = useSettingsStore(s => s.address || 'Senari Chinese Hotel, Sri Lanka')
+  const address = useSettingsStore(s => s.address || 'Senari Restaurant, Mulatiyana.')
   const phone = useSettingsStore(s => s.phone || '+94 76 280 1006')
   const settings = { hotelName, reportTagline, currencySymbol, website, address, phone }
 
@@ -94,11 +94,17 @@ export default function ReceiptModal({ isOpen, onClose, order }) {
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 px-5 py-5 flex flex-col gap-2 font-mono">
 
             {/* ── Header ── */}
-            <div className="text-center mb-1">
+            <div className="text-center mb-1 flex flex-col items-center gap-1.5">
+              <img
+                src="/images/logo.jpeg"
+                alt="Senari Chinese Hotel logo"
+                className="w-12 h-12 rounded-lg object-cover
+                           ring-1 ring-black/10"
+              />
               <p className="text-base font-black tracking-widest uppercase text-black">SENARI CHINESE</p>
               <p className="text-base font-black tracking-widest uppercase text-black">HOTEL</p>
               <p className="text-[10px] tracking-[3px] uppercase text-black/60">Authentic Chinese Cuisine</p>
-              <p className="text-[10px] text-black/50 mt-0.5 leading-snug">Senari Chinese Hotel, Sri Lanka</p>
+              <p className="text-[10px] text-black/50 mt-0.5 leading-snug">{address}</p>
             </div>
 
             <p className="border-t border-dashed border-black/20 my-1" />

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, ClipboardList, UtensilsCrossed,
-  Settings, Menu, X, ChefHat, LogOut, Globe,
+  Settings, Menu, X, LogOut, Globe,
   ChevronLeft, ChevronRight, Sun, Moon, Monitor,
   ReceiptText, Calculator, BarChart2, Users, LayoutGrid, Package, Database, Truck, ShoppingCart,
 } from 'lucide-react'
@@ -137,9 +137,13 @@ function Sidebar({ collapsed, onToggleCollapse, onClose, onLogout, staff, userRo
           className="flex items-center gap-2.5 font-bold min-w-0"
           title={collapsed ? 'POS System' : undefined}
         >
-          <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
-            <ChefHat size={16} className="text-white" />
-          </div>
+          <img
+            src="/images/logo.jpeg"
+            alt="Senari Chinese Hotel logo"
+            className="w-8 h-8 rounded-lg object-cover shrink-0
+                       bg-amber-50 dark:bg-gray-800
+                       ring-1 ring-gray-200 dark:ring-gray-700"
+          />
           {!collapsed && (
             <span className="text-base text-gray-900 dark:text-white truncate">
               POS System

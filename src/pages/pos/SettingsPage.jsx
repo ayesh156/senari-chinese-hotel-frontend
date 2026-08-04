@@ -189,8 +189,8 @@ function GeneralTab() {
   const [form, setForm] = useState({
     name:    'Senari Chinese Hotel',
     phone:   '+94 76 280 1006',
-    email:   'hello@senarichinese.lk',
-    address: '5H6MCMP, Mulatiyana',
+    email:   'senarirestaurant@gmail.com',
+    address: 'Senari Restaurant, Mulatiyana.',
     tagline: 'Authentic Chinese Cuisine',
   })
   const [saved, setSaved] = useState(false)

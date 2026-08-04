@@ -68,7 +68,7 @@ function buildReceiptHTML({
   const tagline = settings?.reportTagline || 'Authentic Chinese Cuisine'
   const currencySym = settings?.currencySymbol || 'Rs.'
   const website = settings?.website || 'www.senarichinese.lk'
-  const address = settings?.address || 'Senari Chinese Hotel, Sri Lanka'
+  const address = settings?.address || 'Senari Restaurant, Mulatiyana.'
   const phone = settings?.phone || '+94 76 280 1006'
 
   // 32-char wide receipt (standard 80mm @ 12pt monospace ≈ 32 chars)
@@ -142,6 +142,17 @@ function buildReceiptHTML({
     .header {
       text-align: center;
       margin-bottom: 2mm;
+    }
+    .header .logo-container {
+      margin-bottom: 1.5mm;
+    }
+    .header .logo-img {
+      width: 18mm;
+      height: 18mm;
+      object-fit: cover;
+      border-radius: 2mm;
+      margin: 0 auto;
+      display: block;
     }
     .header .logo {
       font-size: 15pt;
@@ -279,6 +290,9 @@ function buildReceiptHTML({
 
   <!-- ── HEADER ── -->
   <div class="header">
+    <div class="logo-container">
+      <img class="logo-img" src="/images/logo.jpeg" alt="Senari Chinese Hotel logo" />
+    </div>
     <div class="logo">${hotelName}</div>
     <div class="tagline">${tagline}</div>
     <div class="address">

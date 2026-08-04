@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, NavLink } from 'react-router-dom'
-import { ShoppingCart, UtensilsCrossed, Menu, X, Sun, Moon, Monitor, LayoutDashboard } from 'lucide-react'
+import { ShoppingCart, Menu, X, Sun, Moon, Monitor, LayoutDashboard } from 'lucide-react'
 import { useTheme } from '../utils/ThemeContext'
 import { useCartStore, selectCartCount } from '../utils/store'
 import SlideCart from '../components/ui/SlideCart'
@@ -102,7 +102,13 @@ function MobileDrawer({ open, onClose }) {
             onClick={onClose}
             className="flex items-center gap-2 font-bold text-lg text-amber-600"
           >
-            <UtensilsCrossed size={20} />
+            <img
+              src="/images/logo.jpeg"
+              alt="Senari Chinese Hotel logo"
+              className="w-8 h-8 rounded-lg object-cover
+                         bg-amber-50 dark:bg-gray-800
+                         ring-1 ring-gray-200 dark:ring-gray-700"
+            />
             Senari Chinese
           </Link>
           <button
@@ -211,7 +217,13 @@ function Navbar() {
             onClick={close}
             className="flex items-center gap-2 font-bold text-lg sm:text-xl text-amber-600 shrink-0"
           >
-            <UtensilsCrossed size={20} />
+            <img
+              src="/images/logo.jpeg"
+              alt="Senari Chinese Hotel logo"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover
+                         bg-amber-50 dark:bg-gray-800
+                         ring-1 ring-gray-200 dark:ring-gray-700"
+            />
             <span className="hidden xs:inline sm:inline">Senari Chinese</span>
             <span className="xs:hidden sm:hidden text-base">Senari Chinese</span>
           </Link>

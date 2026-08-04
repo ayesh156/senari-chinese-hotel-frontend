@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  ChefHat,
   LogIn,
   AlertCircle,
   Mail,
@@ -117,11 +116,15 @@ export default function StaffLoginPage() {
           <div className="relative">
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-br
                             from-amber-400/20 to-orange-600/20 blur-md" />
-            <div className="relative w-20 h-20 rounded-2xl
+            <div className="relative w-20 h-20 rounded-2xl overflow-hidden
                             bg-slate-900 border border-amber-500/30
                             shadow-[0_0_24px_rgba(251,191,36,0.15)]
                             flex items-center justify-center">
-              <ChefHat size={36} className="text-amber-400" />
+              <img
+                src="/images/logo.jpeg"
+                alt="Senari Chinese Hotel logo"
+                className="w-full h-full object-cover"
+              />
             </div>
           </div>
 
