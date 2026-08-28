@@ -29,10 +29,11 @@ export const DEFAULT_SETTINGS = {
   reportTagline:          'Business Intelligence & Performance Report',
   confidentialityNotice:  'SENARI CHINESE HOTEL — Confidential',
   currencySymbol:         'Rs.',
-  website:                'www.senarichinese.lk',
   address:                'Senari Restaurant, Mulatiyana.',
   phone:                  '+94 76 280 1006',
   email:                  'senarirestaurant@gmail.com',
+  // Receipt-specific brand line (frontend-local; used by ReceiptModal + ThermalReceipt)
+  tagline:                'Authentic Chinese Cuisine',
   compactTableView:       false,
   darkMode:               true,
   playOrderSound:         true,

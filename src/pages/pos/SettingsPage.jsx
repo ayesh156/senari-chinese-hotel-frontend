@@ -184,20 +184,28 @@ function SaveButton({ onSave, saved }) {
 // TAB: GENERAL
 // ─────────────────────────────────────────────────────────────────────────────
 function GeneralTab() {
-  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
+  const store = useSettingsStore()
+  const { updateSettings } = store
 
   const [form, setForm] = useState({
-    name:    'Senari Chinese Hotel',
-    phone:   '+94 76 280 1006',
-    email:   'senarirestaurant@gmail.com',
-    address: 'Senari Restaurant, Mulatiyana.',
-    tagline: 'Authentic Chinese Cuisine',
+    name:    store.hotelName || 'Senari Chinese Hotel',
+    phone:   store.phone || '+94 76 280 1006',
+    email:   store.email || 'senarirestaurant@gmail.com',
+    address: store.address || 'Senari Restaurant, Mulatiyana.',
+    tagline: store.tagline || 'Authentic Chinese Cuisine',
   })
   const [saved, setSaved] = useState(false)
 
   const set = (key) => (val) => setForm(f => ({ ...f, [key]: val }))
 
   function handleSave() {
+    updateSettings({
+      hotelName: form.name,
+      tagline:   form.tagline,
+      address:   form.address,
+      phone:     form.phone,
+      email:     form.email,
+    })
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
