@@ -342,6 +342,7 @@ function DeleteModal({ customer, onConfirm, onCancel }) {
 }
 
 function SettleModal({ customer, onConfirm, onCancel }) {
+  const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
   const maxDue = customer.dueAmount; const [amount, setAmount] = useState(String(maxDue)); const [error, setError] = useState(''); const inputRef = useRef(null)
   useEffect(() => { setTimeout(() => inputRef.current?.select(), 50) }, [])
   const parsed = parseFloat(amount) || 0; const isPartial = parsed > 0 && parsed < maxDue; const remaining = Math.max(0, maxDue - parsed)

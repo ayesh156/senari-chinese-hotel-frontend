@@ -8,6 +8,7 @@ import SearchableSelect from '../../components/ui/SearchableSelect'
 import ModernPagination from '../../components/ui/ModernPagination'
 import { useMasterDataStore, buildSelectOptions } from '../../utils/masterDataStore'
 import { useSupplierStore } from '../../utils/supplierStore'
+import { useSettingsStore } from '../../utils/settingsStore'
 import SupplierHistoryModal from '../../components/pos/SupplierHistoryModal'
 import { fmtCurrencyDirect } from '../../utils/currency'
 
