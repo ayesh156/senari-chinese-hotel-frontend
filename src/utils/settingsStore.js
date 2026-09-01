@@ -7,8 +7,8 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { settingsApi } from '../api/settings.api'
 
 export const DEFAULT_REMINDER_TEMPLATE =
-  `Dear {name}, you have a pending due of Rs. {dueAmount} at Senari Chinese Hotel. ` +
-  `Please settle it at your earliest convenience. Thank you! — Senari Chinese Hotel`
+  `Dear {name}, you have a pending due of Rs. {dueAmount} at Senari Restaurant. ` +
+  `Please settle it at your earliest convenience. Thank you! — Senari Restaurant`
 
 export const DEFAULT_SETTINGS = {
   // POS operational (local-only — not persisted to system_settings table)
@@ -25,12 +25,12 @@ export const DEFAULT_SETTINGS = {
   reminderMessageTemplate:     DEFAULT_REMINDER_TEMPLATE,
 
   // Backend-persisted system settings (singleton row in system_settings table)
-  hotelName:              'Senari Chinese Hotel',
+  hotelName:              'Senari Restaurant',
   reportTagline:          'Business Intelligence & Performance Report',
-  confidentialityNotice:  'SENARI CHINESE HOTEL — Confidential',
+  confidentialityNotice:  'Senari Restaurant — Confidential',
   currencySymbol:         'Rs.',
   address:                'Senari Restaurant, Mulatiyana.',
-  phone:                  '+94 76 280 1006',
+  phone:                  '076 280 1006',
   email:                  'senarirestaurant@gmail.com',
   // Receipt-specific brand line (frontend-local; used by ReceiptModal + ThermalReceipt)
   tagline:                'Authentic Chinese Cuisine',

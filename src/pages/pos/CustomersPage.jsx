@@ -23,7 +23,7 @@ const DUE_FILTER_OPTIONS = [
 ]
 
 const SEED_REMINDER_LOGS = {
-  1: [ { id: 1, date: '26 May 2026', time: '09:15 AM', message: 'Dear Kamal Perera, you have a pending due of Rss. 1,200 at Senari Chinese Hotel. Please settle it at your earliest convenience. Thank you!' }, { id: 2, date: '20 May 2026', time: '02:30 PM', message: 'Dear Kamal Perera, you have a pending due of Rss. 1,200 at Senari Chinese Hotel. Please settle it at your earliest convenience. Thank you!' } ],
+  1: [ { id: 1, date: '26 May 2026', time: '09:15 AM', message: 'Dear Kamal Perera, you have a pending due of Rss. 1,200 at Senari Restaurant. Please settle it at your earliest convenience. Thank you!' }, { id: 2, date: '20 May 2026', time: '02:30 PM', message: 'Dear Kamal Perera, you have a pending due of Rss. 1,200 at Senari Restaurant. Please settle it at your earliest convenience. Thank you!' } ],
   3: [ { id: 1, date: '26 May 2026', time: '10:00 AM', message: 'Dear Sanduni Fernando…' }, { id: 2, date: '24 May 2026', time: '03:45 PM', message: 'Dear Sanduni Fernando…' }, { id: 3, date: '22 May 2026', time: '11:20 AM', message: 'Dear Sanduni Fernando…' }, { id: 4, date: '19 May 2026', time: '04:00 PM', message: 'Dear Sanduni Fernando…' }, { id: 5, date: '15 May 2026', time: '09:30 AM', message: 'Dear Sanduni Fernando…' }, { id: 6, date: '10 May 2026', time: '01:15 PM', message: 'Dear Sanduni Fernando…' }, { id: 7, date: '05 May 2026', time: '10:45 AM', message: 'Dear Sanduni Fernando…' } ],
   6:  [{ id: 1, date: '25 May 2026', time: '11:00 AM', message: 'Dear Chamara Bandara…' }],
   10: [{ id: 1, date: '24 May 2026', time: '02:00 PM', message: 'Dear Malith Bandara…' }],
@@ -433,7 +433,7 @@ function ReminderHistoryModal({ customer, logs, onClose }) {
 }
 
 function buildMsg(template, customer) {
-  return (template ?? '').replace(/\{name\}/g, customer.name).replace(/\{dueAmount\}/g, customer.dueAmount.toLocaleString('en-LK')).replace(/\{phone\}/g, customer.phone).replace(/\{shop\}/g, 'Senari Chinese Hotel')
+  return (template ?? '').replace(/\{name\}/g, customer.name).replace(/\{dueAmount\}/g, customer.dueAmount.toLocaleString('en-LK')).replace(/\{phone\}/g, customer.phone).replace(/\{shop\}/g, 'Senari Restaurant')
 }
 
 function ReminderModal({ customer, template, onSend, onCancel }) {

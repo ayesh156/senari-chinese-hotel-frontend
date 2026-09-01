@@ -188,8 +188,8 @@ function GeneralTab() {
   const { updateSettings } = store
 
   const [form, setForm] = useState({
-    name:    store.hotelName || 'Senari Chinese Hotel',
-    phone:   store.phone || '+94 76 280 1006',
+    name:    store.hotelName || 'Senari Restaurant',
+    phone:   store.phone || '076 280 1006',
     email:   store.email || 'senarirestaurant@gmail.com',
     address: store.address || 'Senari Restaurant, Mulatiyana.',
     tagline: store.tagline || 'Authentic Chinese Cuisine',
@@ -215,7 +215,7 @@ function GeneralTab() {
       <Section title="Restaurant Identity" sub="Basic information shown to customers">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Restaurant Name" value={form.name}    onChange={set('name')}    placeholder="e.g. Senari Chinese Hotel" />
+            <Field label="Restaurant Name" value={form.name}    onChange={set('name')}    placeholder="e.g. Senari Restaurant" />
             <Field label="Tagline"         value={form.tagline} onChange={set('tagline')} placeholder="e.g. Authentic Chinese Cuisine" />
           </div>
           <TextareaField label="Address" value={form.address} onChange={set('address')} placeholder="Full address…" rows={2} />
@@ -673,7 +673,7 @@ function MessagingTab() {
     .replace(/\{name\}/g,      'Kamal Perera')
     .replace(/\{dueAmount\}/g, '1,200.00')
     .replace(/\{phone\}/g,     '077 123 4567')
-    .replace(/\{shop\}/g,      'Senari Chinese Hotel')
+    .replace(/\{shop\}/g,      'Senari Restaurant')
 
   return (
     <div className="flex flex-col gap-4">
@@ -815,7 +815,7 @@ function HotelInfoTab() {
             label="Hotel Name"
             value={form.hotelName}
             onChange={set('hotelName')}
-            placeholder="e.g. Senari Chinese Hotel"
+            placeholder="e.g. Senari Restaurant"
             hint="Appears on all report PDF headers"
           />
           <Field
@@ -829,7 +829,7 @@ function HotelInfoTab() {
             label="Confidentiality Notice"
             value={form.confidentialityNotice}
             onChange={set('confidentialityNotice')}
-            placeholder="e.g. SENARI CHINESE HOTEL — Confidential"
+            placeholder="e.g. Senari Restaurant — Confidential"
             rows={2}
           />
         </div>

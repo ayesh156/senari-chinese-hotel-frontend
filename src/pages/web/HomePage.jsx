@@ -43,7 +43,7 @@ function HeroSection() {
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.5rem] font-extrabold
                          text-gray-900 dark:text-gray-100 leading-tight tracking-tight">
-            Senari Chinese:{' '}
+            Senari Restaurant:{' '}
             <span className="text-amber-500">Authentic Chinese</span>{' '}
             Cuisine, Direct to Your Table
           </h1>

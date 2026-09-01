@@ -153,7 +153,7 @@ export default function ContactPage() {
             <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800
                             rounded-3xl p-6 flex flex-col gap-5 shadow-sm">
               <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg">Find Us</h2>
-              <ContactDetail icon={Phone} label="Phone" value="+94 76 280 1006" href="tel:+94762801006" />
+              <ContactDetail icon={Phone} label="Phone" value="076 280 1006" href="tel:+94762801006" />
               <ContactDetail icon={Mail}  label="Email" value="senarirestaurant@gmail.com" href="mailto:senarirestaurant@gmail.com" />
               <ContactDetail icon={MapPin} label="Address" value="Senari Restaurant, Mulatiyana." />
               <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
@@ -179,7 +179,7 @@ export default function ContactPage() {
                 allowFullScreen=""
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Senari Chinese Hotel location on Google Maps"
+                title="Senari Restaurant location on Google Maps"
               />
             </div>
           </div>

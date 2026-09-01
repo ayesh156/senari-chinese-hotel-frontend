@@ -601,6 +601,7 @@ export default function InvoiceFormModal({ onClose, onSave, nextId, initialOrder
         subtotal:  i.subtotal,
       })),
     }
+
     onSave(savedOrder)
     onClose()
   }

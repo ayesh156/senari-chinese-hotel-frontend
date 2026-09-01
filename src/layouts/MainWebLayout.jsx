@@ -104,12 +104,12 @@ function MobileDrawer({ open, onClose }) {
           >
             <img
               src="/images/logo.jpeg"
-              alt="Senari Chinese Hotel logo"
+              alt="Senari Restaurant logo"
               className="w-8 h-8 rounded-lg object-cover
                          bg-amber-50 dark:bg-gray-800
                          ring-1 ring-gray-200 dark:ring-gray-700"
             />
-            Senari Chinese
+            Senari Restaurant
           </Link>
           <button
             onClick={onClose}
@@ -219,13 +219,13 @@ function Navbar() {
           >
             <img
               src="/images/logo.jpeg"
-              alt="Senari Chinese Hotel logo"
+              alt="Senari Restaurant logo"
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover
                          bg-amber-50 dark:bg-gray-800
                          ring-1 ring-gray-200 dark:ring-gray-700"
             />
-            <span className="hidden xs:inline sm:inline">Senari Chinese</span>
-            <span className="xs:hidden sm:hidden text-base">Senari Chinese</span>
+            <span className="hidden xs:inline sm:inline">Senari Restaurant</span>
+            <span className="xs:hidden sm:hidden text-base">Senari Restaurant</span>
           </Link>
 
           {/* Desktop links */}

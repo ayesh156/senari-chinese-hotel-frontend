@@ -122,7 +122,7 @@ export default function StaffLoginPage() {
                             flex items-center justify-center">
               <img
                 src="/images/logo.jpeg"
-                alt="Senari Chinese Hotel logo"
+                alt="Senari Restaurant logo"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -312,7 +312,7 @@ export default function StaffLoginPage() {
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <p className="text-center text-[11px] text-slate-600 select-none">
-          &copy; 2026 Senari Chinese Hotel. All rights reserved.
+          &copy; 2026 Senari Restaurant. All rights reserved.
         </p>
       </div>
     </div>

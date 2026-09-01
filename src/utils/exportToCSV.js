@@ -261,7 +261,7 @@ export function exportFullReportToCSV({
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19)
 
   // Title
-  sections.push(`SENARI CHINESE HOTEL - Business Intelligence Report`)
+  sections.push(`Senari Restaurant - Business Intelligence Report`)
   sections.push(`Generated: ${new Date().toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`)
   sections.push(periodText || 'Period: Selected Range')
   sections.push('')

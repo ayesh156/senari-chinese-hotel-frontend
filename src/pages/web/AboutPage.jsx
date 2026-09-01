@@ -82,7 +82,7 @@ function StorySection() {
               A Kitchen Built on Heritage
             </h2>
             <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
-              Senari Chinese Hotel was born from a simple belief: that the best food
+              Senari Restaurant was born from a simple belief: that the best food
               comes from the best memories. Our founder grew up watching family elders
               prepare authentic Chinese recipes at dawn, slow-cook broths for hours, and set the table
               with pride. That spirit lives in every dish we serve today.

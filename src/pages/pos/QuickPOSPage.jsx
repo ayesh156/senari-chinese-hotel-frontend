@@ -15,6 +15,7 @@ import { useCustomerStore } from '../../utils/customerStore';
 import { useFilteredFoods } from '../../hooks/useFilteredFoods';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { orderApi } from '../../api/order.api';
+import { printThermalReceipt } from '../../components/ui/ThermalReceipt';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -162,10 +163,19 @@ export default function QuickPOSPage() {
 
     if (result) {
       setMobileCartOpen(false);
-      setCompletedOrder(result);
-      // Re-fetch customers so stats (totalOrders, totalSpent, dueAmount) update instantly
+      
+      // Re-fetch customers so stats update instantly
       fetchCustomers();
-      if (isEditMode) setTimeout(() => navigate('/pos/invoices'), 1200);
+
+      if (isUpdating || isEditMode) {
+        // Edit / Update නම්: Print නොකර කෙලින්ම invoices page එකට redirect කරයි
+        toast.success('Invoice updated successfully');
+        navigate('/pos/invoices');
+      } else {
+        // New Order නම්: Modal එක open නොවී Direct Browser Print එක trigger වේ
+        printThermalReceipt(result);
+        clearCart(); // අවශ්‍ය නම් cart එක clear කර තැබිය හැක
+      }
     } else {
       toast.error('Failed to submit order');
     }
@@ -263,7 +273,6 @@ export default function QuickPOSPage() {
       </div>
 
       <MobileCartDrawer open={mobileCartOpen} onClose={() => setMobileCartOpen(false)} {...cartProps} />
-      <ReceiptModal isOpen={!!completedOrder} order={completedOrder} onClose={() => setCompletedOrder(null)} />
     </div>
   );
 }

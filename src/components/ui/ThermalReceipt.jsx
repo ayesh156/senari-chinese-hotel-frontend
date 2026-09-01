@@ -31,51 +31,47 @@ import { buildReceiptData, buildReceiptHTML } from './receiptTemplate'
  * @returns {Promise<void>}
  */
 export function printThermalReceipt(receiptData, opts = {}) {
-  return new Promise((resolve, reject) => {
-    // Accept either a pre-built receipt payload or a raw order object.
+  return new Promise((resolve) => {
     const receipt = receiptData && receiptData.hotelName
       ? receiptData
       : buildReceiptData(receiptData, opts)
 
-    // Open a small popup window sized for an 80mm receipt preview
-    const win = window.open(
-      '',
-      '_blank',
-      'width=340,height=600,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes'
-    )
-
-    if (!win) {
-      reject(new Error('Popup blocked. Please allow popups for this site.'))
-      return
-    }
-
     const html = buildReceiptHTML(receipt)
-    win.document.open()
-    win.document.write(html)
-    win.document.close()
 
-    // Wait for resources (logo image) to load, then print
-    win.onload = () => {
-      // Small delay ensures fonts/layout are fully rendered
+    // Screen එකට නොපෙනෙන hidden iframe එකක් සාදයි
+    const iframe = document.createElement('iframe')
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = '0'
+    document.body.appendChild(iframe)
+
+    const doc = iframe.contentWindow.document
+    doc.open()
+    doc.write(html)
+    doc.close()
+
+    iframe.onload = () => {
       setTimeout(() => {
-        win.focus()
-        win.print()
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
 
-        // Resolve after print dialog closes (afterprint fires on most browsers)
         const cleanup = () => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe)
+          }
           resolve()
-          win.close()
         }
 
-        if ('onafterprint' in win) {
-          win.onafterprint = cleanup
-          // Fallback timeout in case onafterprint doesn't fire
-          setTimeout(cleanup, 30_000)
+        if ('onafterprint' in iframe.contentWindow) {
+          iframe.contentWindow.onafterprint = cleanup
+          setTimeout(cleanup, 20000)
         } else {
-          // Safari fallback
-          setTimeout(cleanup, 1_000)
+          setTimeout(cleanup, 1000)
         }
-      }, 250)
+      }, 300)
     }
   })
 }

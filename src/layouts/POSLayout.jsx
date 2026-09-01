@@ -139,7 +139,7 @@ function Sidebar({ collapsed, onToggleCollapse, onClose, onLogout, staff, userRo
         >
           <img
             src="/images/logo.jpeg"
-            alt="Senari Chinese Hotel logo"
+            alt="Senari Restaurant logo"
             className="w-8 h-8 rounded-lg object-cover shrink-0
                        bg-amber-50 dark:bg-gray-800
                        ring-1 ring-gray-200 dark:ring-gray-700"
@@ -232,7 +232,7 @@ function Sidebar({ collapsed, onToggleCollapse, onClose, onLogout, staff, userRo
         {/* Copyright — hidden when collapsed */}
         {!collapsed && (
           <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center px-3 pb-1 leading-snug">
-            © 2026 Senari Chinese Hotel
+            © 2026 Senari Restaurant
           </p>
         )}
 
