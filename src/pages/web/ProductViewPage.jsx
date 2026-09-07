@@ -164,8 +164,25 @@ export default function ProductViewPage() {
 
   const [qty, setQty] = useState(1)
   const [food, setFood] = useState(null)
+  const [activeImage, setActiveImage] = useState(null)
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 })
+  const [isZoomed, setIsZoomed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+
+  // Sync selected primary image on item load
+  useEffect(() => {
+    if (food) {
+      setActiveImage(food.image || (Array.isArray(food.images) ? food.images[0] : null))
+    }
+  }, [food])
+
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
+    const x = ((e.clientX - left) / width) * 100
+    const y = ((e.clientY - top) / height) * 100
+    setZoomPos({ x, y })
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -258,24 +275,83 @@ export default function ProductViewPage() {
       {/* ── Main product grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
 
-        {/* Left: Image */}
-        <AnimatedSection delay={0.1}>
-          <div className="relative rounded-3xl overflow-hidden shadow-2xl
-                          aspect-[4/3] bg-gray-100 dark:bg-gray-800">
-            <img
-              src={food.image || FALLBACK_IMAGE_URL}
-              alt={food.name}
-              onError={(e) => { e.target.src = FALLBACK_IMAGE_URL }}
-              className="w-full h-full object-cover"
-            />
-            {food.isNew && (
-              <span className="absolute top-4 left-4 flex items-center gap-1.5
-                               bg-amber-500 text-white text-xs font-bold
-                               px-3 py-1.5 rounded-full shadow-md shadow-amber-200">
-                <Sparkles size={12} /> New
-              </span>
-            )}
-          </div>
+        {/* Left: Interactive Image Viewer with Mouse Hover Zoom & Thumbnails */}
+        <AnimatedSection delay={0.1} className="flex flex-col gap-4">
+          {(() => {
+            const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+            const toUrl = (p) => (!p ? FALLBACK_IMAGE_URL : (p.startsWith('http://') || p.startsWith('https://') ? p : `${baseUrl}${p.startsWith('/') ? '' : '/'}${p}`))
+            
+            // Build full image list from item.images Json catalog + primary item.image
+            const rawGallery = Array.isArray(food.images) && food.images.length > 0
+              ? food.images
+              : (food.image ? [food.image] : [])
+            
+            const currentDisplay = toUrl(activeImage || food.image)
+
+            return (
+              <>
+                {/* Main Large Showcase with Smooth Cursor-following Zoom */}
+                <div
+                  onMouseEnter={() => setIsZoomed(true)}
+                  onMouseLeave={() => setIsZoomed(false)}
+                  onMouseMove={handleMouseMove}
+                  className="relative rounded-3xl overflow-hidden shadow-2xl aspect-[4/3] bg-gray-900/90 flex items-center justify-center cursor-crosshair group"
+                >
+                  <img
+                    src={currentDisplay}
+                    alt={food.name}
+                    style={{
+                      transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                      transform: isZoomed ? 'scale(2.1)' : 'scale(1)',
+                    }}
+                    className="w-full h-full object-contain transition-transform duration-150 ease-out pointer-events-none"
+                    onError={(e) => { e.target.src = FALLBACK_IMAGE_URL }}
+                  />
+
+                  {food.isNew && (
+                    <span className="absolute top-4 left-4 flex items-center gap-1.5 bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md shadow-amber-200 pointer-events-none">
+                      <Sparkles size={12} /> New
+                    </span>
+                  )}
+
+                  {!isZoomed && rawGallery.length > 1 && (
+                    <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] text-white/90 pointer-events-none">
+                      Hover to zoom · {rawGallery.length} photos
+                    </div>
+                  )}
+                </div>
+
+                {/* Thumbnail Carousel for Other Catalog Images */}
+                {rawGallery.length > 1 && (
+                  <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 hide-scrollbar">
+                    {rawGallery.map((imgItem, idx) => {
+                      const thumbUrl = toUrl(imgItem)
+                      const isSelected = (activeImage || food.image) === imgItem
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setActiveImage(imgItem)}
+                          className={`relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-200 bg-gray-900/80 ${
+                            isSelected
+                              ? 'border-amber-500 ring-2 ring-amber-500/40 scale-105 shadow-md'
+                              : 'border-gray-200 dark:border-gray-800 opacity-70 hover:opacity-100 hover:border-amber-400'
+                          }`}
+                        >
+                          <img
+                            src={thumbUrl}
+                            alt={`Thumbnail ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.target.src = FALLBACK_IMAGE_URL }}
+                          />
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </AnimatedSection>
 
         {/* Right: Details */}

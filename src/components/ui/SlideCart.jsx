@@ -9,12 +9,20 @@ import { fmtCurrencyDirect } from '../../utils/currency'
 function CartItem({ item }) {
   const { removeFromCart, updateQuantity } = useCartStore()
 
+  // 🌟 Safe Image URL resolution for backend relative paths
+  const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+  const imgSrc = item.image
+    ? (item.image.startsWith('http://') || item.image.startsWith('https://') 
+        ? item.image 
+        : `${baseUrl}${item.image.startsWith('/') ? '' : '/'}${item.image}`)
+    : FALLBACK_IMAGE_URL
+
   return (
     <li className="flex gap-3 py-4 border-b border-gray-100 dark:border-gray-800 last:border-0">
       {/* Image */}
       <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 shrink-0">
         <img
-          src={item.image || FALLBACK_IMAGE_URL}
+          src={imgSrc}
           alt={item.name}
           onError={(e) => { e.target.src = FALLBACK_IMAGE_URL }}
           className="w-full h-full object-cover"

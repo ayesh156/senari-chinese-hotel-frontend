@@ -49,6 +49,15 @@ function StatPill({ icon: Icon, value, color = 'text-gray-400 dark:text-gray-500
   )
 }
 
+// ── Bulletproof Image URL Resolver for Catalog & Relative Paths ───────────────
+function resolveCardImageUrl(path) {
+  if (!path) return FALLBACK_IMAGE_URL
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+  const cleanPath = path.startsWith('/') ? path : `/${path}`
+  return `${baseUrl}${cleanPath}`
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 /**
@@ -95,13 +104,14 @@ export default function FoodCard({
                  hover:shadow-2xl hover:-translate-y-1.5 hover:border-amber-300 dark:hover:border-amber-700
                  transition-all duration-300"
     >
-      {/* Image */}
-      <div className="relative h-44 bg-amber-100 dark:bg-gray-700 overflow-hidden shrink-0">
+      {/* Image Container with Original Aspect Ratio Preserved */}
+      <div className="relative h-48 bg-gray-900/90 overflow-hidden shrink-0 flex items-center justify-center">
         <img
-          src={image || FALLBACK_IMAGE_URL}
+          src={resolveCardImageUrl(image)}
           alt={name}
+          loading="lazy"
           onError={(e) => { e.target.src = FALLBACK_IMAGE_URL }}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
         />
         {isFeatured && <FeaturedBadge />}
         {isNew && <NewBadge />}

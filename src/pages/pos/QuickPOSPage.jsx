@@ -204,9 +204,9 @@ export default function QuickPOSPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Title + mobile cart FAB */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <h1 className="text-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+      {/* 🌟 Compact Header */}
+      <div className="shrink-0 flex items-center justify-between px-3 py-1 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <h1 className="text-sm font-extrabold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
           {pageTitle}
         </h1>
         <button onClick={() => setMobileCartOpen(true)}
@@ -220,14 +220,14 @@ export default function QuickPOSPage() {
         </button>
       </div>
 
-      {/* Search + category dropdown */}
-      <div className="shrink-0 flex items-center gap-3 px-3 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+{/* 🌟 Compact Search Bar */}
+      <div className="shrink-0 flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <div className="flex-1 relative min-w-0">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input ref={searchRef} type="text" value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search foods…"
-            className="w-full pl-8 pr-8 py-2 rounded-xl text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-400/20 transition-all" />
+            className="w-full pl-7 pr-7 py-1 text-xs rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-amber-400" />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">

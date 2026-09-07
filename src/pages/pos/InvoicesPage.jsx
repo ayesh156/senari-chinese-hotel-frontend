@@ -2,31 +2,119 @@ import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Eye, Plus, Trash2, AlertTriangle, Pencil,
-  CheckCircle2, XCircle, X,
+  CheckCircle2, XCircle, X, Banknote,
   SlidersHorizontal, ChevronDown, List, LayoutGrid,
 } from 'lucide-react'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import ModernPagination from '../../components/ui/ModernPagination'
 import ReceiptModal from '../../components/pos/ReceiptModal'
 import InvoiceFormModal from '../../components/pos/InvoiceFormModal'
-import { io } from 'socket.io-client'
 import { useInvoiceStore } from '../../utils/invoiceStore'
 import { useFoodStore } from '../../utils/foodStore'
 import { fmtCurrencyDirect } from '../../utils/currency'
 import { useSettingsStore } from '../../utils/settingsStore'
+import { orderApi } from '../../api/order.api'
 
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
 
+// 🌟 Customer Name & Phone Resolver from notes JSON
+function getCustomerDetails(order) {
+  let name = order.customerName || order.customer?.name || ''
+  let phone = order.customer?.phone || ''
+
+  if (order.notes) {
+    try {
+      const parsed = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes
+      if (parsed.customerName) name = parsed.customerName
+      if (parsed.phone) phone = parsed.phone
+    } catch {}
+  }
+
+  return {
+    name: name || 'Walk-in Customer',
+    phone: phone || ''
+  }
+}
+
+// 🌟 DeleteModal සහ Search Filters සඳහා getCustomerName alias එක
 function getCustomerName(order) {
-  if (order.customerName) return order.customerName
-  try {
-    if (order.notes) {
-      const parsed = JSON.parse(order.notes)
-      if (parsed.customerName) return parsed.customerName
-    }
-  } catch {}
-  return 'Walk-in Customer'
+  return getCustomerDetails(order).name
+}
+
+// 🌟 Quick Payment Modal Component for Settle at Counter
+// 🌟 Quick Payment Modal Component for Settle at Counter
+function QuickPayModal({ order, onConfirm, onCancel, isSubmitting }) {
+  const [amount, setAmount] = useState(order.total || 0)
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
+
+  // 🌟 Payment Method Options for SearchableSelect
+  const PAYMENT_METHOD_OPTIONS = [
+    { value: 'CASH',   label: 'Cash' },
+    { value: 'CARD',   label: 'Card' },
+    { value: 'ONLINE', label: 'Online Transfer' },
+  ]
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div className="rounded-2xl max-w-sm w-full shadow-2xl border overflow-hidden bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700/50">
+        <div className="p-5 border-b bg-amber-500/10 border-amber-500/20">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Receive Payment</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            {order.invoiceNumber || `INV-${order.id}`} — {getCustomerDetails(order).name}
+          </p>
+        </div>
+
+        <div className="p-5 flex flex-col gap-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 block">Total Due Amount</label>
+            <div className="text-2xl font-extrabold text-amber-600 tabular-nums">
+              {fmtCurrencyDirect(order.total || 0)}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">Received Amount (Rs.)</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+
+          {/* 🌟 SearchableSelect Dropdown for Payment Method */}
+          <div>
+            <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">Payment Method</label>
+            <SearchableSelect
+              options={PAYMENT_METHOD_OPTIONS}
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              placeholder="Select Payment Method"
+              searchPlaceholder="Search method..."
+              triggerClassName="w-full py-2 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm font-semibold rounded-xl"
+            />
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
+          <button
+            onClick={() => onConfirm(order.id, amount, paymentMethod)}
+            disabled={isSubmitting}
+            className="flex-1 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-amber-500 hover:bg-amber-600 transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? 'Processing...' : 'Confirm Payment'}
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-4 py-2.5 rounded-xl font-semibold text-xs border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -244,13 +332,29 @@ export default function InvoicesPage() {
   // Fetch on mount
   useEffect(() => { fetchOrders() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Socket.io real-time listener ─────────────────────────────────────────
+  // ── Native SSE real-time listener (Pure SSE, No Socket.io) ─────────────────
   useEffect(() => {
     const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
-    const socket = io(baseUrl)
-    socket.on('invoiceCreated', addInvoiceToList)
-    socket.on('invoiceUpdated', updateInvoiceInList)
-    return () => { socket.disconnect() }
+    const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP`
+    const eventSource = new EventSource(sseUrl)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const { event: evName, payload } = JSON.parse(event.data)
+        if (evName === 'invoice_finalized' && payload) {
+          // 🌟 Pre-Order එක Invoice List එකේ උඩටම Add කිරීම
+          addInvoiceToList(payload)
+        } else if (evName === 'invoice_updated' && payload) {
+          updateInvoiceInList(payload)
+        }
+      } catch (e) {
+        console.warn('[SSE Invoice List Parse Error]', e)
+      }
+    }
+
+    return () => { 
+      eventSource.close()
+    }
   }, [addInvoiceToList, updateInvoiceInList])
   const [search,              setSearch]              = useState('')
   const [dateFilter,          setDateFilter]          = useState('all')
@@ -263,6 +367,39 @@ export default function InvoicesPage() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [delOrder,            setDelOrder]            = useState(null)
   const [viewMode,            setViewMode]            = useState('table')
+
+  // 🌟 Quick Pay States & Settle Handler
+  const [payOrder, setPayOrder] = useState(null)
+  const [isProcessingPay, setIsProcessingPay] = useState(false)
+
+// 🌟 Authenticated Quick Settle Payment Handler via orderApi
+  async function handleSettlePayment(orderId, amountPaid, method) {
+    setIsProcessingPay(true)
+    try {
+      // 🌟 QuickPOSPage එකේ භාවිතා වන orderApi.update method එකම භාවිත කිරීම
+      const res = await orderApi.update(orderId, {
+        amountPaid,
+        items: payOrder.items?.map(i => ({
+          foodId: i.foodId || i.id,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice || i.price,
+        })) || [],
+        subtotal: payOrder.subtotal,
+        total: payOrder.total,
+        customerName: getCustomerDetails(payOrder).name,
+        paymentMethod: method,
+      })
+
+      if (res && (res.success || res.data)) {
+        await fetchOrders() // Invoice list එක refresh කිරීම
+        setPayOrder(null)
+      }
+    } catch (err) {
+      console.error('[Payment Settlement Failed]:', err)
+    } finally {
+      setIsProcessingPay(false)
+    }
+  }
 
   // ── Auto-switch to grid on mobile (< 768px) ──────────────────────────────
   useEffect(() => {
@@ -532,11 +669,16 @@ export default function InvoicesPage() {
                             <TypeBadge type={order.type || order.orderType} />
                           </span>
                         </div>
-                        {/* Customer */}
+                        {/* Customer with Phone */}
                         <div>
                           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                            {getCustomerName(order)}
+                            {getCustomerDetails(order).name}
                           </p>
+                          {getCustomerDetails(order).phone && (
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
+                              {getCustomerDetails(order).phone}
+                            </p>
+                          )}
                         </div>
                         {/* Date + Total */}
                         <div className="flex items-center justify-between gap-2 mt-auto pt-1">
@@ -552,6 +694,14 @@ export default function InvoicesPage() {
                       </div>
                       {/* Actions */}
                       <div className="flex border-t border-gray-100 dark:border-gray-800 divide-x divide-gray-100 dark:divide-gray-800">
+                        {/* 🌟 Quick Pay button in Grid view */}
+                        {order.paymentStatus !== 'PAID' && (
+                          <button onClick={() => setPayOrder(order)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold
+                                       text-amber-600 hover:bg-amber-500 hover:text-white transition-colors">
+                            <Banknote size={13} /> Pay
+                          </button>
+                        )}
                         <button onClick={() => navigate(`/pos/quick?editId=${order.id}`)}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold
                                      text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400
@@ -618,7 +768,14 @@ export default function InvoicesPage() {
                         <p className="text-xs text-gray-400 dark:text-gray-500">{time}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{getCustomerName(order)}</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                          {getCustomerDetails(order).name}
+                        </p>
+                        {getCustomerDetails(order).phone && (
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums">
+                            {getCustomerDetails(order).phone}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <TypeBadge type={order.type || order.orderType} />
@@ -634,6 +791,16 @@ export default function InvoicesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          {/* 🌟 Quick Pay button in Table view for UNPAID orders */}
+                          {order.paymentStatus !== 'PAID' && (
+                            <button
+                              onClick={() => setPayOrder(order)}
+                              title="Pay Now"
+                              className="p-2 rounded-xl transition-colors text-amber-500 hover:text-white hover:bg-amber-500 bg-amber-500/10"
+                            >
+                              <Banknote size={15} />
+                            </button>
+                          )}
                           <button
                             onClick={() => navigate(`/pos/quick?editId=${order.id}`)}
                             aria-label={`Edit invoice ${invNum(order.id)}`}
@@ -701,6 +868,16 @@ export default function InvoicesPage() {
           order={delOrder}
           onConfirm={() => handleDeleteInvoice(delOrder.id)}
           onCancel={() => setDelOrder(null)}
+        />
+      )}
+
+      {/* 🌟 Quick Payment Modal ── */}
+      {payOrder && (
+        <QuickPayModal
+          order={payOrder}
+          onConfirm={handleSettlePayment}
+          onCancel={() => setPayOrder(null)}
+          isSubmitting={isProcessingPay}
         />
       )}
     </div>

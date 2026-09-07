@@ -4,7 +4,6 @@ import {
   ArrowRight, Search, ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
 import SearchableSelect from '../../components/ui/SearchableSelect'
-import { io } from 'socket.io-client'
 import { useLiveOrdersStore } from '../../utils/liveOrdersStore'
 import { fmtCurrencyDirect } from '../../utils/currency'
 
@@ -68,14 +67,15 @@ const COLUMNS = [
 ]
 
 const TYPE_OPTIONS = [
-  { value: 'all',     label: 'All Types' },
-  { value: 'DINE_IN', label: 'Dine-in'  },
-  { value: 'PICKUP',  label: 'Pick-up'  },
+  { value: 'all',      label: 'All Types' },
+  { value: 'DINE_IN',  label: 'Dine-in'  },
+  { value: 'TAKEAWAY', label: 'Pick-up'  },
 ]
 
 const TYPE_CONFIG = {
-  PICKUP:  { label: 'Pick-up', badge: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300' },
-  DINE_IN: { label: 'Dine-in', badge: 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' },
+  TAKEAWAY: { label: 'Pick-up', badge: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+  PICKUP:   { label: 'Pick-up', badge: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+  DINE_IN:  { label: 'Dine-in', badge: 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,12 +92,35 @@ function minutesAgo(iso) {
   return `${diff} mins ago`
 }
 
+// 🌟 Helper to extract Customer Name and Phone from notes JSON (Web orders)
+function resolveCustomerInfo(order) {
+  let name = order.customer?.name || order.customerName || ''
+  let phone = order.customer?.phone || order.phone || ''
+
+  if ((!name || name === 'Walk-in Customer' || !phone) && order.notes) {
+    try {
+      const parsed = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes
+      if (parsed.customerName) name = parsed.customerName
+      if (parsed.phone) phone = parsed.phone
+    } catch {
+      // ignore parse error
+    }
+  }
+
+  return {
+    name: name || 'Walk-in Customer',
+    phone: phone || ''
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ORDER CARD
 // ─────────────────────────────────────────────────────────────────────────────
 function OrderCard({ order, col, onAdvance }) {
   const [expanded, setExpanded] = useState(false)
   const typeCfg = TYPE_CONFIG[order.orderType] || {}
+  // 🌟 Resolve actual customer details even after page refresh
+  const customerInfo = resolveCustomerInfo(order)
 
   return (
     <div className={`
@@ -120,11 +143,11 @@ function OrderCard({ order, col, onAdvance }) {
           <div className="flex items-center gap-1.5 mt-1">
             <User size={11} className="text-gray-400 shrink-0" />
             <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
-              {order.customer?.name || order.customerName || 'Walk-in Customer'}
+              {customerInfo.name}
             </p>
-            {order.customer?.phone && (
+            {customerInfo.phone && (
               <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums shrink-0">
-                {order.customer.phone}
+                {customerInfo.phone}
               </span>
             )}
           </div>
@@ -321,13 +344,29 @@ export default function LiveOrdersPage() {
   // ── Fetch on mount ────────────────────────────────────────────────────────
   useEffect(() => { fetchLiveOrders() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Socket.io listener ────────────────────────────────────────────────────
+  // ── Native SSE real-time listener (Pure SSE, No Socket.io) ─────────────────
   useEffect(() => {
     const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
-    const socket = io(baseUrl)
-    socket.on('newOrder', addNewOrder)
-    socket.on('orderStatusChanged', updateOrderStatus)
-    return () => { socket.disconnect() }
+    const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP`
+    const eventSource = new EventSource(sseUrl)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const { event: evName, payload } = JSON.parse(event.data)
+        if (evName === 'invoice_finalized' && payload) {
+          // Pre-order converted to Live Order Queue item
+          addNewOrder(payload)
+        } else if (evName === 'order_status_changed' && payload) {
+          updateOrderStatus(payload)
+        }
+      } catch (e) {
+        console.warn('[SSE Live Order Parse Error]', e)
+      }
+    }
+
+    return () => { 
+      eventSource.close()
+    }
   }, [addNewOrder, updateOrderStatus])
 
   // ── Advance order status via API ──────────────────────────────────────────

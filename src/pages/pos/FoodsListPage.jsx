@@ -351,7 +351,13 @@ export default function FoodsListPage() {
                     <td className="px-4 py-3"><FoodThumbnail imagePath={item.image} alt={item.name} /></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-gray-900 dark:text-white whitespace-nowrap">{item.name}</p>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/pos/foods/edit/${item.id}`)}
+                          className="font-semibold text-gray-900 dark:text-white whitespace-nowrap hover:text-amber-500 dark:hover:text-amber-400 transition-colors text-left"
+                        >
+                          {item.name}
+                        </button>
                         {item.isNew && <span className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-md leading-none">NEW</span>}
                       </div>
                       {item.description && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 max-w-xs truncate">{item.description}</p>}

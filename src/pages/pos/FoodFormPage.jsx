@@ -9,7 +9,7 @@ import { useMasterDataStore } from '../../utils/masterDataStore'
 import { useFoodStore } from '../../utils/foodStore'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { fmtCurrencyDirect } from '../../utils/currency'
-
+import FoodImageUploader from '../../components/pos/FoodImageUploader'
 import { useSettingsStore } from '../../utils/settingsStore'
 
 
@@ -73,152 +73,6 @@ function ToggleSwitch({ checked, onChange, label, sub, icon: Icon, iconColor }) 
   )
 }
 
-// ── Client-Side Image Compression (canvas → toBlob) ────────────────────────────
-function compressImageToBlob(file, { maxDim = 800, quality = 0.8 } = {}) {
-  return new Promise((resolve) => {
-    if (!file || !file.type.startsWith('image/')) { resolve(null); return }
-
-    const img = new Image()
-    img.onload = () => {
-      let { width, height } = img
-      if (width > maxDim || height > maxDim) {
-        if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim }
-        else { width = Math.round(width * maxDim / height); height = maxDim }
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0, width, height)
-      canvas.toBlob((blob) => resolve(blob), 'image/webp', quality)
-    }
-    img.onerror = () => resolve(null)
-    img.src = URL.createObjectURL(file)
-  })
-}
-
-// ── Image Upload Area ──────────────────────────────────────────────────────────
-function ImageUploadArea({ imagePreview, imageFile, onChangePreview, onChangeFile, imageUrl, onChangeUrl }) {
-  const [dragOver, setDragOver] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [imageSource, setImageSource] = useState(imageUrl ? 'url' : 'upload')
-
-  const processFile = useCallback(async (file) => {
-    if (!file || !file.type.startsWith('image/')) return
-    setIsProcessing(true)
-    try {
-      const compressedBlob = await compressImageToBlob(file)
-      if (!compressedBlob) { setIsProcessing(false); return }
-      const compressedFile = new File([compressedBlob], 'food-image.webp', { type: 'image/webp' })
-      onChangeFile(compressedFile)
-      const previewUrl = URL.createObjectURL(compressedBlob)
-      onChangePreview(previewUrl)
-    } catch {
-      onChangeFile(file)
-      onChangePreview(URL.createObjectURL(file))
-    } finally {
-      setIsProcessing(false)
-    }
-  }, [onChangeFile, onChangePreview])
-
-  useEffect(() => {
-    const handler = async (e) => {
-      const items = e.clipboardData?.items
-      if (!items) return
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          e.preventDefault()
-          const file = item.getAsFile()
-          if (file) await processFile(file)
-          break
-        }
-      }
-    }
-    document.addEventListener('paste', handler)
-    return () => document.removeEventListener('paste', handler)
-  }, [processFile])
-
-  const displaySrc = imagePreview || imageFile
-    ? (imagePreview || (imageFile instanceof File ? URL.createObjectURL(imageFile) : imageFile))
-    : (imageUrl || null)
-
-  return (
-    <div className="flex flex-col gap-3">
-      {/* Image Source Selector */}
-      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
-        <button
-          type="button"
-          onClick={() => { setImageSource('upload'); onChangeUrl('') }}
-          className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${imageSource === 'upload' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-        >
-          Upload Image
-        </button>
-        <button
-          type="button"
-          onClick={() => { setImageSource('url'); onChangeFile(null); onChangePreview('') }}
-          className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${imageSource === 'url' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-        >
-          Paste URL
-        </button>
-      </div>
-
-      {imageSource === 'upload' ? (
-        displaySrc && !imageUrl ? (
-          <div className="relative rounded-2xl border-2 border-dashed overflow-hidden border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <img src={displaySrc} alt="Food preview" className="w-full h-48 object-cover" />
-            <button type="button" onClick={() => { onChangePreview(''); onChangeFile(null) }}
-              className="absolute top-2 right-2 p-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors">
-              <X size={14} />
-            </button>
-            <p className="absolute bottom-0 left-0 right-0 px-3 py-1.5 text-xs bg-black/50 text-white/80 text-center">
-              Click × to remove · Ctrl+V to paste from clipboard
-            </p>
-          </div>
-        ) : (
-          <div onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={e => { e.preventDefault(); setDragOver(false); processFile(e.dataTransfer.files?.[0]) }}
-            onClick={() => !isProcessing && document.getElementById('food-image-input').click()}
-            className={`relative rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-200 overflow-hidden cursor-pointer ${isProcessing ? 'cursor-wait border-amber-400 bg-amber-500/5' : dragOver ? 'border-amber-500 bg-amber-500/10' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-            {isProcessing ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
-                  <Loader2 size={22} className="text-amber-500 animate-spin" />
-                </div>
-                <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Compressing…</p>
-              </div>
-            ) : (
-              <>
-                <div className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center mb-3 bg-gray-100 dark:bg-gray-700">
-                  <Upload size={22} className="text-gray-400 dark:text-gray-500" />
-                </div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Drop image here or click to upload</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Auto-compressed WebP · Max 800px</p>
-                <p className="text-xs text-amber-500 dark:text-amber-400 mt-2 font-medium">Tip: Ctrl+V to paste from clipboard</p>
-              </>
-            )}
-          </div>
-        )
-      ) : (
-        <div className="flex flex-col gap-2">
-          <input type="url" value={imageUrl}
-            onChange={e => onChangeUrl(e.target.value)} placeholder="https://images.unsplash.com/…" className={inputCls(false)} />
-          {imageUrl && (
-            <div className="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
-              <img src={imageUrl} alt="Food preview"
-                onError={e => { e.target.src = ''; e.target.style.display = 'none' }}
-                className="w-full h-48 object-cover" />
-            </div>
-          )}
-        </div>
-      )}
-
-      <input id="food-image-input" type="file" accept="image/*" className="hidden"
-        onChange={e => processFile(e.target.files?.[0])} />
-    </div>
-  )
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function FoodFormPage() {
   const navigate = useNavigate()
@@ -239,6 +93,9 @@ export default function FoodFormPage() {
   }, [foodCategories])
 
   const [form, setForm] = useState(EMPTY_FORM)
+  // Image catalog state: array of { id, preview, file, path }
+  const [catalog, setCatalog] = useState([])
+  const [primaryId, setPrimaryId] = useState(null)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const [fetching, setFetching] = useState(false)
@@ -249,6 +106,7 @@ export default function FoodFormPage() {
     }
   }, [foodCategories])
 
+  // Fetch item directly from API if refreshed or not found in state store
   useEffect(() => {
     if (!isEditing) {
       if (!form.categoryId && categoryOptions[0]) {
@@ -257,32 +115,72 @@ export default function FoodFormPage() {
       return
     }
 
-    setFetching(true)
-    const item = foods.find(f => f.id === parseInt(id, 10))
-    if (item) {
-      const imageUrl = item.image?.startsWith('/')
-        ? `${API_BASE.replace('/api', '')}${item.image}`
-        : (item.image || '')
-      setForm({
-        name: item.name || '',
-        description: item.description || '',
-        price: String(item.price ?? ''),
-        categoryId: item.categoryId,
-        image: imageUrl,
-        imageFile: null,
-        isNew: item.isNew ?? false,
-        isFeatured: item.isFeatured ?? false,
-        isHealthy: item.isHealthy ?? false,
-        available: item.isAvailable ?? true,
-        prepTimeMinutes: String(item.prepTimeMinutes ?? 15),
-        calories: String(item.calories ?? 450),
-        serves: item.serves || '1-2 persons',
-        ingredients: Array.isArray(item.ingredients) ? item.ingredients.join(', ') : (item.ingredients || ''),
-        imageUrl: item.image?.startsWith('http') ? item.image : '',
-      })
+    let isMounted = true
+    async function loadItem() {
+      setFetching(true)
+      try {
+        let item = foods.find(f => f.id === parseInt(id, 10))
+        if (!item) {
+          const res = await fetch(`${API_BASE}/foods/${id}`)
+          const json = await res.json()
+          if (json.success && json.data) item = json.data
+        }
+
+        if (item && isMounted) {
+          const serverBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+          
+          // Build images catalog array from item.images or fallback to item.image
+          const rawImages = Array.isArray(item.images) && item.images.length > 0
+            ? item.images
+            : (item.image ? [item.image] : [])
+
+          const loadedCatalog = rawImages.map((imgPath, idx) => {
+            const fullUrl = imgPath.startsWith('http://') || imgPath.startsWith('https://')
+              ? imgPath
+              : `${serverBase}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`
+            return {
+              id: `db-${idx}-${Date.now()}`,
+              preview: fullUrl,
+              file: null,
+              path: imgPath,
+            }
+          })
+
+          setCatalog(loadedCatalog)
+          if (loadedCatalog.length > 0) {
+            // Match primaryId with current item.image
+            const matchedPrimary = loadedCatalog.find(c => c.path === item.image)
+            setPrimaryId(matchedPrimary ? matchedPrimary.id : loadedCatalog[0].id)
+          }
+
+          setForm({
+            name: item.name || '',
+            description: item.description || '',
+            price: String(item.price ?? ''),
+            categoryId: item.categoryId,
+            image: item.image || '',
+            imageFile: null,
+            isNew: item.isNew ?? false,
+            isFeatured: item.isFeatured ?? false,
+            isHealthy: item.isHealthy ?? false,
+            available: item.isAvailable ?? true,
+            prepTimeMinutes: String(item.prepTimeMinutes ?? 15),
+            calories: String(item.calories ?? 450),
+            serves: item.serves || '1-2 persons',
+            ingredients: Array.isArray(item.ingredients) ? item.ingredients.join(', ') : (item.ingredients || ''),
+            imageUrl: '',
+          })
+        }
+      } catch (err) {
+        console.error('Failed to fetch food details:', err)
+      } finally {
+        if (isMounted) setFetching(false)
+      }
     }
-    setFetching(false)
-  }, [id, isEditing, foods, categoryOptions])
+
+    loadItem()
+    return () => { isMounted = false }
+  }, [id, isEditing, categoryOptions])
 
   const set = (key) => (val) => {
     setForm(f => ({ ...f, [key]: val }))
@@ -318,16 +216,33 @@ export default function FoodFormPage() {
       fd.append('isNew', form.isNew ? 'true' : 'false')
       fd.append('isFeatured', form.isFeatured ? 'true' : 'false')
       fd.append('isHealthy', form.isHealthy ? 'true' : 'false')
+      // Format serves: if only a number is entered, auto-append person/persons
+      let formattedServes = (form.serves || '').trim()
+      if (/^\d+$/.test(formattedServes)) {
+        const count = parseInt(formattedServes, 10)
+        formattedServes = count === 1 ? '1 person' : `${count} persons`
+      }
+
       fd.append('prepTimeMinutes', form.prepTimeMinutes)
       fd.append('calories', form.calories)
-      fd.append('serves', form.serves)
+      fd.append('serves', formattedServes || '1-2 persons')
       fd.append('ingredients', form.ingredients)
 
-      // If using URL instead of file upload, send imageUrl in body
-      if (form.imageUrl) {
-        fd.append('imageUrl', form.imageUrl)
-      } else if (form.imageFile) {
-        fd.append('image', form.imageFile)
+      // Append all new files to 'images' for multer upload.array('images')
+      catalog.forEach(item => {
+        if (item.file instanceof File) {
+          fd.append('images', item.file)
+        }
+      })
+
+      // Send list of existing DB paths to preserve in catalog
+      const existingPaths = catalog.filter(i => Boolean(i.path)).map(i => i.path)
+      fd.append('existingImages', JSON.stringify(existingPaths))
+
+      // Specify primary image path
+      const currentPrimary = catalog.find(i => i.id === primaryId) || catalog[0]
+      if (currentPrimary && currentPrimary.path) {
+        fd.append('primaryImage', currentPrimary.path)
       }
 
       let success;
@@ -434,14 +349,13 @@ export default function FoodFormPage() {
 
             <div className="flex flex-col gap-5">
               <div>
-                <FieldLabel icon={ImageIcon}>Food Image</FieldLabel>
-                <ImageUploadArea
-                  imagePreview={form.image}
-                  imageFile={form.imageFile}
-                  onChangePreview={val => set('image')(val)}
-                  onChangeFile={val => set('imageFile')(val)}
-                  imageUrl={form.imageUrl}
-                  onChangeUrl={val => set('imageUrl')(val)}
+                <FieldLabel icon={ImageIcon}>Food Image Catalog</FieldLabel>
+                <FoodImageUploader
+                  catalog={catalog}
+                  primaryId={primaryId}
+                  onAddImages={(newItems) => setCatalog(prev => [...prev, ...newItems])}
+                  onRemoveImage={(id) => setCatalog(prev => prev.filter(i => i.id !== id))}
+                  onSetPrimary={(id) => setPrimaryId(id)}
                 />
               </div>
               <div className="flex flex-col gap-4 p-4 rounded-2xl border bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700/50">

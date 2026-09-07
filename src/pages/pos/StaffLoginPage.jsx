@@ -312,7 +312,7 @@ export default function StaffLoginPage() {
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <p className="text-center text-[11px] text-slate-600 select-none">
-          &copy; 2026 Senari Restaurant. All rights reserved.
+          &copy; 2026 Nebula Infinite. All rights reserved.
         </p>
       </div>
     </div>

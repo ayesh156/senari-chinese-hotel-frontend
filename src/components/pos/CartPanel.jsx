@@ -32,12 +32,13 @@ export default function CartPanel({
 
   return (
     <aside className="flex flex-col w-80 h-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 overflow-hidden">
-      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+      {/* 🌟 Compact Header */}
+      <div className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center">
-            <ShoppingCart size={16} className="text-amber-500" />
+          <div className="w-6 h-6 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center">
+            <ShoppingCart size={14} className="text-amber-500" />
           </div>
-          <h2 className="font-extrabold text-gray-900 dark:text-gray-100 text-[15px]">Ticket</h2>
+          <h2 className="font-bold text-gray-900 dark:text-gray-100 text-xs">Ticket</h2>
           {count > 0 && <span className="bg-amber-500 text-white text-[11px] font-bold min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center">{count}</span>}
         </div>
         {cartItems.length > 0 && (
@@ -69,8 +70,9 @@ export default function CartPanel({
           </ul>
         )}
       </div>
-      <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 pt-3 pb-4 space-y-3">
-        <div className="space-y-2">
+      {/* 🌟 Compact Bottom Controls */}
+      <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 space-y-1.5">
+        <div className="space-y-1">
           <div className="w-full">
             <SearchableSelect
               options={options} value={selectedCustomer} onChange={onCustomerChange}
@@ -123,7 +125,7 @@ export default function CartPanel({
           </div>
         </div>
         <button onClick={onPay} disabled={cartItems.length === 0 || isPaying}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-600 hover:to-amber-500 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-[15px] py-4 rounded-2xl shadow-lg shadow-amber-500/40 transition-all">
+          className="w-full flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-600 hover:to-amber-500 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs py-2.5 rounded-xl shadow-md shadow-amber-500/30 transition-all">
           {isPaying ? (
             <><svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Processing…</>
           ) : <><span>💳</span>{ctaLabel}</>}

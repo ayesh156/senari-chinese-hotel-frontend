@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '../utils/ThemeContext'
 import { useAuthStore, selectRole } from '../utils/authStore'
+import LiveOrderNotification from '../components/pos/LiveOrderNotification'
 
 // ── Role-based nav visibility ──────────────────────────────────────────────────
 /**
@@ -232,7 +233,7 @@ function Sidebar({ collapsed, onToggleCollapse, onClose, onLogout, staff, userRo
         {/* Copyright — hidden when collapsed */}
         {!collapsed && (
           <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center px-3 pb-1 leading-snug">
-            © 2026 Senari Restaurant
+            © 2026 Nebula Infinite
           </p>
         )}
 
@@ -351,7 +352,7 @@ export default function POSLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* ── Top Header ── */}
-        <header className="h-16 shrink-0 flex items-center justify-between px-4 sm:px-6
+        <header className="h-12 shrink-0 flex items-center justify-between px-3 sm:px-4
                            bg-white dark:bg-gray-950
                            border-b border-gray-200 dark:border-gray-800
                            shadow-sm">
@@ -378,8 +379,9 @@ export default function POSLayout() {
             </div>
           </div>
 
-          {/* Right: clock + theme + user badge */}
+          {/* Right: notification + clock + theme + user badge */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <LiveOrderNotification />
             <LiveClock />
             <ThemeToggle />
             <div className="flex items-center gap-2

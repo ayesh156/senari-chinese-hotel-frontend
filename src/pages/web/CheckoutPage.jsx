@@ -1,27 +1,31 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Phone, CalendarDays, Clock, ShoppingBag, ChevronRight, Tag } from 'lucide-react'
+import { User, Phone, Clock, ShoppingBag, ChevronRight } from 'lucide-react'
 import { useCartStore, selectSubtotal } from '../../utils/store'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
-import ModernSelect from '../../components/ui/ModernSelect'
 import { fmtCurrencyDirect } from '../../utils/currency'
-
-const DISCOUNT_TYPE_OPTIONS = [
-  { value: 'percentage', label: '%  Percentage' },
-  { value: 'fixed',      label: 'Fixed Amount' },
-]
+import ModernDateTimePicker from '../../components/ui/ModernDateTimePicker'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-/** Returns today's date as YYYY-MM-DD for the min attribute */
+/** Returns today's date as YYYY-MM-DD */
 function todayISO() {
   return new Date().toISOString().split('T')[0]
+}
+
+/** Returns time formatted as HH:MM exactly 1 hour from now */
+function getOneHourAheadTime() {
+  const date = new Date()
+  date.setHours(date.getHours() + 1)
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
 }
 
 // ── Order Type Toggle ─────────────────────────────────────────────────────────
 function OrderTypeToggle({ value, onChange }) {
   const options = [
-    { id: 'PICKUP',  label: 'Pick-up',  desc: 'Collect at the counter' },
-    { id: 'DINE_IN', label: 'Dine-in',  desc: 'Pre-order, pay on arrival' },
+    { id: 'TAKEAWAY', label: 'Pick-up',  desc: 'Collect at the counter' },
+    { id: 'DINE_IN',  label: 'Dine-in',  desc: 'Pre-order, pay on arrival' },
   ]
   return (
     /* Stack vertically on mobile, side-by-side on sm+ */
@@ -73,12 +77,18 @@ const inputClass = [
 ].join(' ')
 
 // ── Order Summary Item ────────────────────────────────────────────────────────
+// ── Order Summary Item with safe URL resolution ──────────────────────────────
 function SummaryItem({ item }) {
+  const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
+  const imgSrc = item.image
+    ? (item.image.startsWith('http://') || item.image.startsWith('https://') ? item.image : `${baseUrl}${item.image.startsWith('/') ? '' : '/'}${item.image}`)
+    : FALLBACK_IMAGE_URL
+
   return (
     <li className="flex items-center gap-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
       <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 shrink-0">
         <img
-          src={item.image || FALLBACK_IMAGE_URL}
+          src={imgSrc}
           alt={item.name}
           onError={(e) => { e.target.src = FALLBACK_IMAGE_URL }}
           className="w-full h-full object-cover"
@@ -102,23 +112,18 @@ export default function CheckoutPage() {
   const clearCart = useCartStore(s => s.clearCart)
   const subtotal  = useCartStore(selectSubtotal)
 
+  // 🌟 Auto-filled Date and 1-hour ahead Arrival Time
   const [form, setForm] = useState({
     name:         '',
     phone:        '',
-    orderType:    'PICKUP',
-    arrivalDate:  '',
-    arrivalTime:  '',
+    orderType:    'TAKEAWAY',
+    arrivalDate:  todayISO(),
+    arrivalTime:  getOneHourAheadTime(),
   })
-  const [errors,        setErrors]        = useState({})
-  const [discountType,  setDiscountType]  = useState('percentage')
-  const [discountValue, setDiscountValue] = useState(0)
+  const [errors, setErrors] = useState({})
 
-  // ── Discount calculations ─────────────────────────────────────────────────
-  const rawDiscount   = discountType === 'percentage'
-    ? (subtotal * discountValue) / 100
-    : discountValue
-  const discountAmount = Math.min(rawDiscount, subtotal)   // can't exceed subtotal
-  const grandTotal     = Math.max(0, subtotal - discountAmount)
+  // Grand total is equivalent to subtotal since promo codes are removed
+  const grandTotal = subtotal
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -130,35 +135,81 @@ export default function CheckoutPage() {
     setErrors(prev => ({ ...prev, [key]: '' }))
   }
 
+// 🌟 Sri Lankan Mobile Number Validator (e.g. 0771234567, 071 234 5678, +94771234567)
   const validate = () => {
     const e = {}
-    if (!form.name.trim())  e.name  = 'Full name is required.'
-    if (!form.phone.trim()) e.phone = 'Phone number is required.'
-    else if (!/^\+?[\d\s\-]{7,15}$/.test(form.phone.trim()))
-      e.phone = 'Enter a valid phone number.'
+    if (!form.name.trim()) e.name = 'Full name is required.'
+    
+    const cleanPhone = form.phone.replace(/[\s\-]/g, '')
+    const sriLankaPhoneRegex = /^(?:0|(?:\+94))7[01245678][0-9]{7}$/
+    
+    if (!cleanPhone) {
+      e.phone = 'Phone number is required.'
+    } else if (!sriLankaPhoneRegex.test(cleanPhone)) {
+      e.phone = 'Please enter a valid Sri Lankan mobile number (e.g., 07XXXXXXXX).'
+    }
     return e
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs);
-    return }
+    if (Object.keys(errs).length) { 
+      setErrors(errs)
+      return 
+    }
 
-    const orderId = `ORD-${Math.floor(100 + Math.random() * 900)}`
-    clearCart()
-    navigate('/order-success', {
-      state: {
-        orderId,
-        orderType:      form.orderType,
-        name:           form.name,
-        arrivalDate:    form.arrivalDate,
-        arrivalTime:    form.arrivalTime,
-        discountAmount: discountAmount > 0 ? discountAmount : null,
-        discountType:   discountAmount > 0 ? discountType   : null,
-        grandTotal,
-      },
-    })
+    const cleanPhone = form.phone.replace(/[\s\-]/g, '')
+
+    // 🌟 Prepare payload matching backend OrderService
+    const orderData = {
+      orderType: form.orderType,
+      customerName: form.name.trim(),
+      phone: cleanPhone,
+      arrivalDate: form.arrivalDate,
+      arrivalTime: form.arrivalTime,
+      subtotal,
+      total: grandTotal,
+      amountPaid: 0, // Unpaid (Pay at counter)
+      items: cartItems.map(item => ({
+        foodId: Number(item.id),
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.price)
+      }))
+    }
+
+    const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '')
+
+    try {
+      // 🌟 1. Save directly to Database via POST /api/orders
+      const response = await fetch(`${apiBase}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      })
+
+      const resData = await response.json()
+      if (!response.ok) {
+        throw new Error(resData.error || 'Failed to place order')
+      }
+
+      const savedOrder = resData.data || resData
+
+      clearCart()
+      navigate('/order-success', {
+        state: {
+          orderId: savedOrder.invoiceNumber || savedOrder.id,
+          orderType: form.orderType,
+          name: form.name,
+          arrivalDate: form.arrivalDate,
+          arrivalTime: form.arrivalTime,
+          grandTotal,
+        },
+      })
+    } catch (err) {
+      console.error('[Order Placement Error]:', err)
+      setErrors({ form: err.message || 'Could not place order. Please try again.' })
+    }
   }
 
   if (cartItems.length === 0) return null
@@ -219,88 +270,22 @@ export default function CheckoutPage() {
                 {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
               </Field>
 
-              {/* ── Discount input — in the spacious left form column ── */}
-              <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300
-                                  flex items-center gap-1.5">
-                  <Tag size={14} className="text-amber-500" />
-                  Discount / Promo
-                  <span className="text-gray-400 dark:text-gray-500 font-normal text-xs">(optional)</span>
-                </label>
-
-                {/* sm:col-span-1 = type selector, sm:col-span-2 = value input */}
-                <div className="flex flex-col sm:flex-row items-stretch gap-3">
-                  {/* Type selector — fixed width on desktop */}
-                  <div className="w-full sm:w-44 shrink-0">
-                    <ModernSelect
-                      options={DISCOUNT_TYPE_OPTIONS}
-                      value={discountType}
-                      onChange={setDiscountType}
-                      className="w-full"
-                    />
-                  </div>
-                  {/* Divider visible on desktop */}
-                  <div className="hidden sm:flex items-center text-gray-300 dark:text-gray-600 select-none font-light text-lg">
-                    |
-                  </div>
-                  {/* Value input — takes remaining space */}
-                  <div className="flex-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={discountType === 'percentage' ? 100 : undefined}
-                      step={discountType === 'percentage' ? 1 : 50}
-                      value={discountValue === 0 ? '' : discountValue}
-                      onChange={e => setDiscountValue(Math.max(0, Number(e.target.value)))}
-                      placeholder={discountType === 'percentage' ? 'Enter % e.g. 10' : 'Enter amount e.g. 200'}
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-
-                {/* Live saving preview */}
-                {discountAmount > 0 && (
-                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    ✓ Saving {fmtCurrencyDirect(discountAmount)}
-                    {discountType === 'percentage' && ` (${discountValue}%)`}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
+              {/* ── Expected Arrival Section ── */}
+              <div className="flex flex-col gap-1.5 pt-2 border-t border-gray-100 dark:border-gray-800">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                   <Clock size={14} className="text-amber-500" />
                   Expected Arrival
-                  <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
+                  <span className="text-gray-400 dark:text-gray-500 font-normal text-xs">(optional)</span>
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Date picker */}
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                      <CalendarDays size={12} className="text-amber-400" />
-                      Date
-                    </label>
-                    <input
-                      type="date"
-                      min={todayISO()}
-                      value={form.arrivalDate}
-                      onChange={e => set('arrivalDate', e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-                  {/* Time picker */}
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                      <Clock size={12} className="text-amber-400" />
-                      Time
-                    </label>
-                    <input
-                      type="time"
-                      value={form.arrivalTime}
-                      onChange={e => set('arrivalTime', e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
+
+                {/* 🌟 Modern Date & Time Picker Component */}
+                <ModernDateTimePicker
+                  dateValue={form.arrivalDate}
+                  timeValue={form.arrivalTime}
+                  onDateChange={(val) => set('arrivalDate', val)}
+                  onTimeChange={(val) => set('arrivalTime', val)}
+                />
+
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                   Helps us have your order ready when you arrive.
                 </p>
@@ -337,19 +322,6 @@ export default function CheckoutPage() {
                   <span>Subtotal</span>
                   <span>{fmtCurrencyDirect(subtotal)}</span>
                 </div>
-
-                {/* Discount row — only shown when a discount is applied */}
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-red-500 dark:text-red-400">
-                      Discount
-                      {discountType === 'percentage' && ` (${discountValue}%)`}
-                    </span>
-                    <span className="text-red-500 dark:text-red-400">
-                      − {fmtCurrencyDirect(discountAmount)}
-                    </span>
-                  </div>
-                )}
 
                 {/* Grand Total */}
                 <div className="flex justify-between font-bold text-gray-900 dark:text-gray-100
