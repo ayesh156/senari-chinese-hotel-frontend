@@ -55,6 +55,10 @@ export default function FoodImageUploader({
       }
       if (newItems.length > 0) {
         onAddImages(newItems)
+        // Automatically select the first newly added image as primary preview
+        if (!primaryId && newItems[0]) {
+          onSetPrimary(newItems[0].id)
+        }
       }
     } catch (err) {
       console.error('Error compressing files:', err)
@@ -63,9 +67,25 @@ export default function FoodImageUploader({
     }
   }, [onAddImages])
 
-  // Clipboard Paste Listener (Ctrl+V)
+  // ── Intelligent Clipboard Listener: Handles direct Files AND Any Copied Web Image Link ──
   useEffect(() => {
     const handlePaste = async (e) => {
+      // 1. Direct Image Address / Web Link Pasted (Accepts any http/https link from Google/Facebook/etc.)
+      const pastedText = e.clipboardData?.getData('text')?.trim()
+      if (pastedText && /^https?:\/\/.+/i.test(pastedText)) {
+        e.preventDefault()
+        const newWebItem = {
+          id: `web-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          preview: pastedText,
+          file: null,
+          path: pastedText,
+        }
+        onAddImages([newWebItem])
+        onSetPrimary(newWebItem.id) // Automatically highlight as primary preview instantly
+        return
+      }
+
+      // 2. Binary Image / Screenshot / "Copy Image" in Clipboard
       const items = e.clipboardData?.items
       if (!items) return
       const filesToProcess = []
@@ -80,9 +100,10 @@ export default function FoodImageUploader({
         await processFiles(filesToProcess)
       }
     }
+
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [processFiles])
+  }, [processFiles, onAddImages])
 
   const primaryItem = catalog.find(i => i.id === primaryId) || catalog[0]
 

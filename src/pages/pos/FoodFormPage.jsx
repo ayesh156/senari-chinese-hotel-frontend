@@ -235,11 +235,11 @@ export default function FoodFormPage() {
         }
       })
 
-      // Send list of existing DB paths to preserve in catalog
-      const existingPaths = catalog.filter(i => Boolean(i.path)).map(i => i.path)
-      fd.append('existingImages', JSON.stringify(existingPaths))
+      // Send list of both existing DB paths and newly pasted direct Web Image URLs
+      const webAndDbPaths = catalog.filter(i => Boolean(i.path)).map(i => i.path)
+      fd.append('existingImages', JSON.stringify(webAndDbPaths))
 
-      // Specify primary image path
+      // Specify primary image: supports both local uploaded files and direct web links
       const currentPrimary = catalog.find(i => i.id === primaryId) || catalog[0]
       if (currentPrimary && currentPrimary.path) {
         fd.append('primaryImage', currentPrimary.path)

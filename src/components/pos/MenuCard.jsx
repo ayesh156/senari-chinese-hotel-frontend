@@ -24,11 +24,14 @@ function MenuCardImage({ image }) {
     );
   }
   return (
-    <div className="w-full aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-800">
-      <img src={getFullImageUrl(image)} alt=""
+    <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-950/80 dark:bg-gray-950/90 flex items-center justify-center">
+      <img
+        src={getFullImageUrl(image)}
+        alt=""
         onError={() => setImgError(true)}
-        className="w-full h-full object-contain transition-transform duration-200 hover:scale-105"
-        loading="lazy" />
+        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+        loading="lazy"
+      />
     </div>
   );
 }
@@ -48,7 +51,9 @@ export default function MenuCard({ item, qty, onAdd }) {
       )}
       <div className="flex flex-col flex-1 p-3 gap-1">
         <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight line-clamp-2">{item.name}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-auto pt-1 font-bold">{currencySymbol} {fmt(item.price)}</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-auto pt-1 font-extrabold tabular-nums">
+          {fmtCurrencyDirect(item.price)}
+        </p>
       </div>
       <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-md">
         <Plus size={14} />
