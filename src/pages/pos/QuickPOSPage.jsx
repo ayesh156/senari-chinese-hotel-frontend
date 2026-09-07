@@ -220,25 +220,36 @@ export default function QuickPOSPage() {
         </button>
       </div>
 
-{/* 🌟 Compact Search Bar */}
-      <div className="shrink-0 flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+{/* 🌟 Matching Height Search Bar and Category Select Box */}
+      <div className="shrink-0 flex items-center gap-2.5 px-3 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <div className="flex-1 relative min-w-0">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <input ref={searchRef} type="text" value={searchQuery}
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
+          <input
+            ref={searchRef}
+            type="text"
+            value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search foods…"
-            className="w-full pl-7 pr-7 py-1 text-xs rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-amber-400" />
+            className="w-full pl-8 pr-8 h-9 text-xs rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
+          />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            >
               <X size={13} />
             </button>
           )}
         </div>
         <div className="shrink-0 w-44">
-          <SearchableSelect options={categoryFilterOptions} value={categoryFilter}
+          <SearchableSelect
+            options={categoryFilterOptions}
+            value={categoryFilter}
             onChange={(val) => { setCategoryFilter(val); setSelectedCategory('All'); }}
-            placeholder="All Categories" clearable triggerClassName="py-2 text-xs rounded-xl" />
+            placeholder="All Categories"
+            clearable
+            triggerClassName="h-9 py-0 text-xs rounded-xl flex items-center"
+          />
         </div>
       </div>
 
