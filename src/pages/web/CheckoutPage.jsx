@@ -181,7 +181,8 @@ export default function CheckoutPage() {
     const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '')
 
     try {
-      // 🌟 1. Save directly to Database via POST /api/orders
+      // 🌟 1. Save directly to Database via POST /api/orders (Zero SSE Connection)
+      // Single HTTP POST transaction that terminates immediately upon DB commit.
       const response = await fetch(`${apiBase}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,6 +196,7 @@ export default function CheckoutPage() {
 
       const savedOrder = resData.data || resData
 
+      // 🌟 2. Instant cart flush and redirect to confirmation
       clearCart()
       navigate('/order-success', {
         state: {

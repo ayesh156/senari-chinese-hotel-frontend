@@ -39,11 +39,13 @@ export const useLiveOrdersStore = create((set, get) => ({
     });
   },
 
-  // Called by Socket.io when a new order is placed via QuickPOS
+  // 🌟 Real-time Order Placement Handler (Prepend to top of Kanban queue)
   addNewOrder: (order) => {
     set((state) => {
-      if (state.orders.find(o => o.id === order.id)) return state;
-      return { orders: [...state.orders, order] };
+      // Prevent duplicate order insertion
+      if (state.orders.some(o => o.id === order.id)) return state;
+      // Prepend newest incoming order so it appears instantly at the very top
+      return { orders: [order, ...state.orders] };
     });
   },
 

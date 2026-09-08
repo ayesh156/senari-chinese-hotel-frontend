@@ -2,60 +2,76 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, ShoppingBag, ArrowRight } from 'lucide-react'
 import { fmtCurrencyDirect } from '../../utils/currency'
+// 🌟 Use the authenticated POS apiClient to avoid manual token handling and 401 errors// 🌟 Import useLiveOrdersStore from frontend/src/utils/liveOrdersStore.js
+import { useLiveOrdersStore } from '../../utils/liveOrdersStore.js';
+import { useInvoiceStore } from '../../utils/invoiceStore.js';
 
 export default function LiveOrderNotification() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const [liveOrders, setLiveOrders] = useState([])
   const containerRef = useRef(null)
 
-  // 🌟 Fetch Initial Live Orders on Mount
-  const fetchLiveQueue = async () => {
-    try {
-      const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '')
-      const token = sessionStorage.getItem('pos_token') || sessionStorage.getItem('token')
-      const res = await fetch(`${baseUrl}/orders/live`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
-      const json = await res.json()
-      if (json.success && Array.isArray(json.data)) {
-        // Only active/kitchen orders (PENDING, PREPARING)
-        setLiveOrders(json.data.filter(o => o.status !== 'READY' && o.status !== 'COMPLETED'))
-      }
-    } catch {
-      // Ignore background fetch error
-    }
-  }
+  // 🌟 Directly use orders from liveOrdersStore to avoid 401 Unauthorized manual fetch errors
+  const storeOrders = useLiveOrdersStore((state) => state.orders || []);
+  const fetchLiveOrders = useLiveOrdersStore((state) => state.fetchLiveOrders);
 
   useEffect(() => {
-    fetchLiveQueue()
-  }, [])
+    if (typeof fetchLiveOrders === 'function') {
+      fetchLiveOrders();
+    }
+  }, [fetchLiveOrders]);
 
-  // 🌟 Real-time Native SSE Listener
+  // Only active/kitchen orders (PENDING, PREPARING)
+  const liveOrders = storeOrders.filter(
+    (o) => o.status !== 'READY' && o.status !== 'COMPLETED'
+  );
+
+// 🌟 Real-time Native SSE Listener (Handles order_created, invoice_finalized & default message)
   useEffect(() => {
     const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
-    const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP`
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken') || sessionStorage.getItem('token') || ''
+    const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP${token ? `&token=${token}` : ''}`
     const eventSource = new EventSource(sseUrl)
 
-    eventSource.onmessage = (event) => {
+    // 🌟 Safely push incoming order to BOTH Live Orders Queue and Invoices Table
+    const handleIncomingOrder = (rawPayload) => {
       try {
-        const { event: evName, payload } = JSON.parse(event.data)
-        if (evName === 'invoice_finalized' && payload) {
-          // New web order arrives -> prepend and increase count
-          setLiveOrders(prev => {
-            const exists = prev.some(o => o.id === payload.id)
-            if (exists) return prev
-            return [payload, ...prev]
-          })
-        } else if (evName === 'order_status_changed' && payload) {
-          // If marked READY or COMPLETED -> reduce count
-          if (payload.status === 'READY' || payload.status === 'COMPLETED') {
-            setLiveOrders(prev => prev.filter(o => o.id !== payload.id))
-          }
+        const order = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload
+        if (!order || !order.id) return
+
+        // 1. Dispatch to Live Orders Kanban store
+        useLiveOrdersStore.getState().addNewOrder(order)
+
+        // 2. Dispatch to Invoices store (re-fetches or prepends to invoices list instantly)
+        const invStore = useInvoiceStore.getState()
+        if (typeof invStore.fetchOrders === 'function') {
+          invStore.fetchOrders()
+        } else if (typeof invStore.fetchInvoices === 'function') {
+          invStore.fetchInvoices()
         }
       } catch (e) {
-        console.warn('[Notification SSE Error]:', e)
+        console.warn('[Notification Parse Error]:', e)
       }
+    }
+
+    // 🌟 Listen to both standard named events
+    eventSource.addEventListener('order_created', (e) => {
+      const data = JSON.parse(e.data)
+      handleIncomingOrder(data.payload || data)
+    })
+
+    eventSource.addEventListener('invoice_finalized', (e) => {
+      const data = JSON.parse(e.data)
+      handleIncomingOrder(data.payload || data)
+    })
+
+    eventSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.event === 'order_created' || data.event === 'invoice_finalized') {
+          handleIncomingOrder(data.payload || data)
+        }
+      } catch {}
     }
 
     return () => eventSource.close()
