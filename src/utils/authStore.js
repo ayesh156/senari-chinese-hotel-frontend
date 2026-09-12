@@ -90,6 +90,7 @@ export const useAuthStore = create(
       },
 
       // ── Logout ──
+      // Clean teardown: Clears all storage keys and forces atomic redirect to prevent background polling race conditions
       logout: async () => {
         try {
           await apiClient.post('/auth/logout');
@@ -99,7 +100,17 @@ export const useAuthStore = create(
 
         removeToken(TOKEN_KEYS.accessToken);
         removeToken(TOKEN_KEYS.refreshToken);
+        try {
+          sessionStorage.removeItem('pos-auth');
+          localStorage.removeItem('pos-auth');
+        } catch { /* noop */ }
+
         set({ user: null, isAuthenticated: false, isLoading: false, error: null });
+
+        // Force instantaneous clean navigation to login (kills all active polling loops instantly)
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       },
 
       // ── Refresh the access token ──

@@ -32,6 +32,11 @@ async function request(endpoint, method = 'GET', body = undefined, options = {})
   const token = getAccessToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  } else if (endpoint !== '/auth/login' && endpoint !== '/auth/refresh') {
+    // Gracefully reject authenticated endpoints when token is completely absent
+    if (endpoint.startsWith('/orders') || endpoint.startsWith('/dashboard')) {
+      return { success: false, data: [] };
+    }
   }
 
   if (body !== undefined && !(body instanceof FormData)) {

@@ -10,7 +10,15 @@ export const useLiveOrdersStore = create((set, get) => ({
   loading: false,
   error: null,
 
+  // ── Fetch active orders for Kanban board with auth token guard ──
   fetchLiveOrders: async () => {
+    // Guard: Prevent firing network calls if the user is logging out or has no valid token
+    const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pos-access-token') : null;
+    if (!token) {
+      set({ orders: [], loading: false, error: null });
+      return;
+    }
+
     set({ loading: true, error: null });
     try {
       const jsonRes = await orderApi.getLive();
