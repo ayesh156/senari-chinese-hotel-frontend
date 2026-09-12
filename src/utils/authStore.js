@@ -90,7 +90,7 @@ export const useAuthStore = create(
       },
 
       // ── Logout ──
-      // Clean teardown: Clears all storage keys and forces atomic redirect to prevent background polling race conditions
+      // Clean teardown: Clears tokens, storage, and forces atomic redirect directly to /pos/login
       logout: async () => {
         try {
           await apiClient.post('/auth/logout');
@@ -107,9 +107,9 @@ export const useAuthStore = create(
 
         set({ user: null, isAuthenticated: false, isLoading: false, error: null });
 
-        // Force instantaneous clean navigation to login (kills all active polling loops instantly)
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        // Atomic hard redirect directly to verified POS login route (prevents /login 404 race conditions)
+        if (typeof window !== 'undefined' && window.location.pathname !== '/pos/login') {
+          window.location.href = '/pos/login';
         }
       },
 
