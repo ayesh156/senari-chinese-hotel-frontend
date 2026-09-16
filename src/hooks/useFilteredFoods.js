@@ -45,11 +45,31 @@ export function useFilteredFoods({ foods, selectedCategory, categoryFilter, sear
       });
     }
 
-   return [...items].sort((a, b) => {
+   // 🌟 Reports-Driven Live Ranking: 1. Pinned (Featured) -> 2. Top Selling (Best Performers) -> 3. Food Code
+    return [...items].sort((a, b) => {
+      // 1. Pinned / Featured items always stay pinned at the very top
       const aPinned = Boolean(a.isFeatured);
       const bPinned = Boolean(b.isFeatured);
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
+
+      // 2. Reports Best Performers: Sort strictly by total sold quantity (e.g. 84 sold > 15 sold)
+      const aSold = Number(a.totalSold || a.salesCount || a.orderCount || 0);
+      const bSold = Number(b.totalSold || b.salesCount || b.orderCount || 0);
+      if (bSold !== aSold) {
+        return bSold - aSold;
+      }
+
+      // 3. Food Code natural order for items with matching sales
+      const aCode = a.code ? String(a.code).trim() : '';
+      const bCode = b.code ? String(b.code).trim() : '';
+      if (aCode && bCode) {
+        return aCode.localeCompare(bCode, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (aCode && !bCode) return -1;
+      if (!aCode && bCode) return 1;
+
+      // 4. Stable fallback
       return (b.id || 0) - (a.id || 0);
     });
   }, [foods, selectedCategory, categoryFilter, searchQuery, quickFilterTag]); 

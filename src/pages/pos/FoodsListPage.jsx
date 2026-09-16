@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom' // 🌟 Added Link for Right-click Open in New Tab
 import {
   Plus, Search, Pencil, Trash2,
   ChevronUp, ChevronDown, AlertTriangle,
@@ -150,7 +150,19 @@ export default function FoodsListPage() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [viewMode, setViewMode] = useState('table')
 
-  useEffect(() => { fetchFoods() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // 🌟 Cross-Tab Instant Sync: Re-fetches foods if an item is updated in another tab/window
+  useEffect(() => {
+    fetchFoods()
+
+    const channel = new BroadcastChannel('pos_foods_channel')
+    channel.onmessage = (event) => {
+      if (event.data?.type === 'FOOD_UPDATED' || event.data?.type === 'FOOD_CREATED') {
+        fetchFoods()
+      }
+    }
+
+    return () => channel.close()
+  }, [fetchFoods])
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)')
@@ -171,18 +183,50 @@ export default function FoodsListPage() {
     }
   }, [foods])
 
-  // ── Sort descending by ID (newest = highest ID first) ─────────────────────
+  // 🌟 Reports-Driven Natural Sort: 1. Pinned -> 2. Top Selling (Total Sold) -> 3. Food Code -> 4. ID
   const sortedFoods = useMemo(() => {
-    return [...foods].sort((a, b) => (b.id || 0) - (a.id || 0))
-  }, [foods])
+    return [...foods].sort((a, b) => {
+      // 1. Featured / Pinned priority
+      if (a.isFeatured && !b.isFeatured) return -1;
+      if (!a.isFeatured && b.isFeatured) return 1;
+
+      // 2. Best Performers from Reports (Highest totalSold quantity first)
+      const aSold = Number(a.totalSold || a.salesCount || 0);
+      const bSold = Number(b.totalSold || b.salesCount || 0);
+      if (bSold !== aSold) return bSold - aSold;
+
+      // 3. Natural Food Code order
+      if (a.code && b.code) {
+        return a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (a.code && !b.code) return -1;
+      if (!a.code && b.code) return 1;
+
+      // 4. Default fallback: Newest ID first
+      return (b.id || 0) - (a.id || 0);
+    });
+  }, [foods]);
 
   // ── Derived filtered + sorted list ───────────────────────────────────────
   const filtered = useMemo(() => {
     return sortedFoods
       .filter(i => {
         const catName = i.category?.name || ''
-        const q = search.toLowerCase()
-        const matchSearch = i.name.toLowerCase().includes(q) || catName.toLowerCase().includes(q)
+        const rawQ = search.trim().toLowerCase()
+        const numQ = rawQ.replace(/^0+/, '')
+
+        // 🌟 Search by Item Name, Category, or Food Code (Exact & zero-normalized like 011 / 11)
+        const nameMatch = (i.name || '').toLowerCase().includes(rawQ)
+        const catMatch = catName.toLowerCase().includes(rawQ)
+        
+        let codeMatch = false
+        if (i.code) {
+          const rawCode = String(i.code).toLowerCase()
+          const numCode = rawCode.replace(/^0+/, '')
+          codeMatch = rawCode.includes(rawQ) || (numQ !== '' && numCode === numQ)
+        }
+
+        const matchSearch = !rawQ || nameMatch || catMatch || codeMatch
         const matchCat = catFilter === 'All' || catName === catFilter
         const matchAvail = availFilter === 'all' ? true : availFilter === 'available' ? i.isAvailable : !i.isAvailable
         const matchPrice = matchesPriceRange(Number(i.price), priceRange)
@@ -190,8 +234,19 @@ export default function FoodsListPage() {
         return matchSearch && matchCat && matchAvail && matchPrice && matchNew
       })
       .sort((a, b) => {
+        // If sorting specifically by code, use natural numeric order
+        if (sortKey === 'code') {
+          const ca = String(a.code || '')
+          const cb = String(b.code || '')
+          if (ca && !cb) return -1
+          if (!ca && cb) return 1
+          return sortDir === 'asc'
+            ? ca.localeCompare(cb, undefined, { numeric: true })
+            : cb.localeCompare(ca, undefined, { numeric: true })
+        }
+
         const va = a[sortKey], vb = b[sortKey]
-        // Handle numeric fields (id) vs string fields (name, category)
+        // Handle numeric fields (id, price) vs string fields (name, category)
         if (typeof va === 'number' && typeof vb === 'number') {
           return sortDir === 'asc' ? va - vb : vb - va
         }
@@ -334,7 +389,12 @@ export default function FoodsListPage() {
               <thead>
                 <tr className="border-b bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700/50">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 w-16">Image</th>
-                  {[{ label: 'Name', col: 'name' }, { label: 'Category', col: 'category' }, { label: 'Price', col: 'price' }].map(({ label, col }) => (
+                  {[
+                    { label: 'Code', col: 'code' }, // 🌟 Clickable Code sort
+                    { label: 'Name', col: 'name' },
+                    { label: 'Category', col: 'category' },
+                    { label: 'Price', col: 'price' }
+                  ].map(({ label, col }) => (
                     <th key={col} onClick={() => handleSort(col)} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer hover:text-amber-500 select-none whitespace-nowrap transition-colors">
                       <span className="inline-flex items-center gap-1">{label} <SortIcon col={col} /></span>
                     </th>
@@ -345,24 +405,31 @@ export default function FoodsListPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {pageItems.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-14 text-center"><ImageOff size={28} className="mx-auto mb-2 text-gray-300 dark:text-gray-700" /><p className="text-sm font-medium text-gray-400 dark:text-gray-600">No items match your filters</p></td></tr>
+                  <tr><td colSpan={7} className="px-4 py-14 text-center"><ImageOff size={28} className="mx-auto mb-2 text-gray-300 dark:text-gray-700" /><p className="text-sm font-medium text-gray-400 dark:text-gray-600">No items match your filters</p></td></tr>
                 ) : pageItems.map(item => (
                   <tr key={item.id} className="transition-all duration-150 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 hover:bg-amber-50/50 dark:hover:bg-gray-800/30">
                     <td className="px-4 py-3"><FoodThumbnail imagePath={item.image} alt={item.name} /></td>
+
+                    {/* 🌟 Dedicated Food Code Column (Aligns with header 'Code') */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {item.code ? (
+                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          {item.code}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* 🌟 Name Column with native <Link> for Right-Click "Open in New Tab" */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        {item.code && (
-                          <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                            {item.code}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/pos/foods/edit/${item.id}`)}
+                        <Link
+                          to={`/pos/foods/edit/${item.id}`}
                           className="font-semibold text-gray-900 dark:text-white whitespace-nowrap hover:text-amber-500 dark:hover:text-amber-400 transition-colors text-left"
                         >
                           {item.name}
-                        </button>
+                        </Link>
                         {item.isFeatured && (
                           <span title="Pinned to top in Quick Invoice" className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-md leading-none flex items-center gap-0.5">
                             PINNED
@@ -372,14 +439,23 @@ export default function FoodsListPage() {
                       </div>
                       {item.description && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 max-w-xs truncate">{item.description}</p>}
                     </td>
+
                     <td className="px-4 py-3 whitespace-nowrap"><CategoryPill category={item.category?.name || item.category} /></td>
                     <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-white">{fmtCurrencyDirect(item.price)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <button onClick={() => toggleAvailability(item.id)} title="Click to toggle" className="transition-opacity hover:opacity-75"><AvailabilityBadge available={item.isAvailable} /></button>
                     </td>
+
+                    {/* 🌟 Action Buttons with native <Link> for Pencil icon */}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => navigate(`/pos/foods/edit/${item.id}`)} aria-label={`Edit ${item.name}`} className="p-2 rounded-xl transition-colors text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"><Pencil size={15} /></button>
+                        <Link
+                          to={`/pos/foods/edit/${item.id}`}
+                          aria-label={`Edit ${item.name}`}
+                          className="p-2 rounded-xl transition-colors text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                        >
+                          <Pencil size={15} />
+                        </Link>
                         <button onClick={() => setDelItem(item)} aria-label={`Delete ${item.name}`} className="p-2 rounded-xl transition-colors text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
                       </div>
                     </td>

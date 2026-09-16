@@ -269,10 +269,10 @@ export default function QuickPOSPage() {
         </button>
       </div>
 
-{/* 🌟 Unified Exact Height (36px / h-9) Controls: Search Bar, Quick Filters & Category Dropdown */}
-      <div className="shrink-0 flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-        {/* Search Input - Strict h-9 */}
-        <div className="flex-1 relative min-w-0">
+{/* 🌟 Responsive Exact Height (36px / h-9) Controls: Auto-wraps gracefully on narrow screen split views */}
+      <div className="shrink-0 flex flex-wrap lg:flex-nowrap items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        {/* Search Input - Strict h-9 with flexible min-width */}
+        <div className="flex-1 min-w-[160px] relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
           <input
             ref={searchRef}
@@ -292,8 +292,8 @@ export default function QuickPOSPage() {
           )}
         </div>
 
-        {/* 🌟 Professional Segmented Quick Filter Bar - Strict h-9 Container and h-full inner buttons */}
-        <div className="shrink-0 flex items-center gap-1 p-0.5 h-9 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/60 box-border">
+        {/* 🌟 Compact Horizontal Scrollable Filter Bar */}
+        <div className="shrink-0 flex items-center gap-1 p-0.5 h-9 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/60 box-border overflow-x-auto max-w-full">
           {[
             { id: 'all', label: 'All Items', Icon: LayoutGrid },
             { id: 'featured', label: 'Pinned', Icon: Pin },
@@ -306,7 +306,7 @@ export default function QuickPOSPage() {
                 key={id}
                 type="button"
                 onClick={() => setQuickFilterTag(id)}
-                className={`flex items-center gap-1.5 px-3 h-full rounded-[10px] text-xs font-semibold whitespace-nowrap transition-all duration-150 select-none ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-full rounded-[10px] text-xs font-semibold whitespace-nowrap transition-all duration-150 select-none ${
                   isActive
                     ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/30'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'
@@ -319,8 +319,8 @@ export default function QuickPOSPage() {
           })}
         </div>
 
-        {/* Category Select - Strict h-9 Wrapper */}
-        <div className="shrink-0 w-44">
+        {/* Category Select - Adaptive Width */}
+        <div className="shrink-0 w-36 sm:w-44">
           <SearchableSelect
             options={categoryFilterOptions}
             value={categoryFilter}
@@ -332,16 +332,17 @@ export default function QuickPOSPage() {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      {/* 🌟 Flexible Workspace: Adjusts layout dynamically based on available width without breaking pagination */}
+      <div className="flex-1 flex overflow-hidden min-w-0">
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex-1 overflow-y-auto p-2.5 sm:p-3">
             {filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
                 <UtensilsCrossed size={40} className="opacity-30" />
                 <p className="text-sm font-medium">No items found</p>
               </div>
             ) : (
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              <div className="grid gap-2.5 sm:gap-3 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {paginatedItems.map((item) => (
                   <MenuCard key={item.id} item={item} qty={getQty(item.id)} onAdd={() => addToCart(item)} />
                 ))}
@@ -349,15 +350,18 @@ export default function QuickPOSPage() {
             )}
           </div>
           {totalPages > 1 && (
-            <div className="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+            <div className="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
               <ModernPagination
-                currentPage={currentPage} totalPages={totalPages}
-                totalItems={filteredItems.length} itemsPerPage={ITEMS_PER_PAGE}
-                onPageChange={setCurrentPage} />
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredItems.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </div>
-        <div className="hidden md:flex shrink-0">
+        <div className="hidden md:flex shrink-0 w-80 lg:w-96">
           <CartPanel {...cartProps} />
         </div>
       </div>

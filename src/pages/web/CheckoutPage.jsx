@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Phone, Clock, ShoppingBag, ChevronRight } from 'lucide-react'
+import { toast } from 'react-toastify' // 🌟 Added Toast
 import { useCartStore, selectSubtotal } from '../../utils/store'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
 import { fmtCurrencyDirect } from '../../utils/currency'
@@ -9,16 +10,43 @@ import ModernDateTimePicker from '../../components/ui/ModernDateTimePicker'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 /** Returns today's date as YYYY-MM-DD */
 function todayISO() {
-  return new Date().toISOString().split('T')[0]
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
-/** Returns time formatted as HH:MM exactly 1 hour from now */
-function getOneHourAheadTime() {
-  const date = new Date()
-  date.setHours(date.getHours() + 1)
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
+/** Returns current time formatted as HH:MM */
+function getCurrentTimeStr() {
+  const d = new Date()
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`
+}
+
+// 🌟 Intelligent Slot Finder: Rounds up to the nearest clean 30-minute interval in future
+function getNextAvailableTimeSlot() {
+  const date = new Date()
+  // Add 30 minutes prep buffer
+  date.setMinutes(date.getMinutes() + 30)
+  
+  let hours = date.getHours()
+  let minutes = date.getMinutes()
+
+  // Round up to nearest 30 or 00
+  if (minutes > 0 && minutes <= 30) {
+    minutes = 30
+  } else if (minutes > 30) {
+    hours += 1
+    minutes = 0
+  }
+
+  // Restaurant operational limit check (08:00 to 22:00)
+  if (hours < 8) return '08:30'
+  if (hours > 22 || (hours === 22 && minutes > 0)) return '22:00'
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
 // ── Order Type Toggle ─────────────────────────────────────────────────────────
@@ -112,13 +140,13 @@ export default function CheckoutPage() {
   const clearCart = useCartStore(s => s.clearCart)
   const subtotal  = useCartStore(selectSubtotal)
 
-  // 🌟 Auto-filled Date and 1-hour ahead Arrival Time
+  // 🌟 Defaults to valid future slot immediately on mount
   const [form, setForm] = useState({
     name:         '',
     phone:        '',
     orderType:    'TAKEAWAY',
     arrivalDate:  todayISO(),
-    arrivalTime:  getOneHourAheadTime(),
+    arrivalTime:  getNextAvailableTimeSlot(),
   })
   const [errors, setErrors] = useState({})
 
@@ -135,7 +163,7 @@ export default function CheckoutPage() {
     setErrors(prev => ({ ...prev, [key]: '' }))
   }
 
-// 🌟 Sri Lankan Mobile Number Validator (e.g. 0771234567, 071 234 5678, +94771234567)
+// 🌟 Sri Lankan Mobile Number Validator and Date/Time Guard
   const validate = () => {
     const e = {}
     if (!form.name.trim()) e.name = 'Full name is required.'
@@ -148,6 +176,23 @@ export default function CheckoutPage() {
     } else if (!sriLankaPhoneRegex.test(cleanPhone)) {
       e.phone = 'Please enter a valid Sri Lankan mobile number (e.g., 07XXXXXXXX).'
     }
+
+    // 🌟 Date & Time Validation: Strictly prevent past dates and past times on today's date
+    const today = todayISO()
+    const currentTime = getCurrentTimeStr()
+
+    if (!form.arrivalDate) {
+      e.arrivalDate = 'Please select an arrival date.'
+    } else if (form.arrivalDate < today) {
+      e.arrivalDate = 'Cannot select a past date.'
+    }
+
+    if (!form.arrivalTime) {
+      e.arrivalTime = 'Please select an arrival time.'
+    } else if (form.arrivalDate === today && form.arrivalTime < currentTime) {
+      e.arrivalTime = 'Cannot select a past time for today.'
+    }
+
     return e
   }
 
@@ -156,6 +201,7 @@ export default function CheckoutPage() {
     const errs = validate()
     if (Object.keys(errs).length) { 
       setErrors(errs)
+      toast.warn('Please complete all required fields correctly.') // 🌟 Form validation alert
       return 
     }
 
@@ -196,6 +242,9 @@ export default function CheckoutPage() {
 
       const savedOrder = resData.data || resData
 
+      // 🌟 Order Placed Success Toast
+      toast.success('Pre-order placed successfully! See you soon.')
+
       // 🌟 2. Instant cart flush and redirect to confirmation
       clearCart()
       navigate('/order-success', {
@@ -211,6 +260,7 @@ export default function CheckoutPage() {
     } catch (err) {
       console.error('[Order Placement Error]:', err)
       setErrors({ form: err.message || 'Could not place order. Please try again.' })
+      toast.error(err.message || 'Failed to submit pre-order. Please try again.') // 🌟 Error Toast
     }
   }
 
@@ -280,13 +330,26 @@ export default function CheckoutPage() {
                   <span className="text-gray-400 dark:text-gray-500 font-normal text-xs">(optional)</span>
                 </label>
 
-                {/* 🌟 Modern Date & Time Picker Component */}
+                {/* 🌟 Modern Date & Time Picker with strict past date and past time restrictions */}
                 <ModernDateTimePicker
                   dateValue={form.arrivalDate}
                   timeValue={form.arrivalTime}
-                  onDateChange={(val) => set('arrivalDate', val)}
+                  minDate={todayISO()}
+                  minTime={form.arrivalDate === todayISO() ? getCurrentTimeStr() : undefined}
+                  onDateChange={(val) => {
+                    set('arrivalDate', val)
+                    // If switching to today and current time is already in the past, bump to 1 hour ahead
+                    if (val === todayISO() && form.arrivalTime < getCurrentTimeStr()) {
+                      set('arrivalTime', getOneHourAheadTime())
+                    }
+                  }}
                   onTimeChange={(val) => set('arrivalTime', val)}
                 />
+                {(errors.arrivalDate || errors.arrivalTime) && (
+                  <p className="text-xs text-red-500 mt-0.5">
+                    {errors.arrivalDate || errors.arrivalTime}
+                  </p>
+                )}
 
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                   Helps us have your order ready when you arrive.

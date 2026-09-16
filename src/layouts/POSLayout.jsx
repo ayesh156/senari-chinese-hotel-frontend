@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react' // 🌟 Added useRef
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, ClipboardList, UtensilsCrossed,
-  Settings, Menu, X, LogOut, Globe,
+  Settings, Menu, X, LogOut, Globe, User, ShieldCheck, ChevronDown, // 🌟 Added User, ShieldCheck, ChevronDown
   ChevronLeft, ChevronRight, Sun, Moon, Monitor,
   ReceiptText, Calculator, BarChart2, Users, LayoutGrid, Package, Database, Truck, ShoppingCart,
 } from 'lucide-react'
@@ -75,6 +75,94 @@ function LiveClock() {
           hour: '2-digit', minute: '2-digit', second: '2-digit',
         })}
       </p>
+    </div>
+  )
+}
+
+// ── 🌟 User Profile Popup Menu Component ──────────────────────────────────────
+function UserMenuDropdown({ staff, onLogout }) {
+  const navigate = useNavigate()
+  const [isOpen, setIsOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  // Outside click handler to close menu
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const initialLetter = (staff?.name || 'Admin').charAt(0).toUpperCase()
+  const email = staff?.email || `${(staff?.name || 'admin').toLowerCase().replace(/\s+/g, '')}@gmail.com`
+
+  return (
+    <div className="relative" ref={menuRef}>
+      {/* Trigger Button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(prev => !prev)}
+        className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800/90 hover:bg-gray-200 dark:hover:bg-gray-700/80 rounded-full sm:rounded-xl pl-1 pr-2.5 sm:px-2.5 py-1 transition-all duration-150 border border-gray-200/60 dark:border-gray-700/60 focus:outline-none"
+      >
+        <div className="w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">
+          {initialLetter}
+        </div>
+        <span className="text-xs font-bold text-gray-800 dark:text-gray-200 hidden sm:block">
+          {staff?.name ?? 'Admin'}
+        </span>
+        <ChevronDown size={13} className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* 🌟 Popup Dropdown Panel */}
+      {isOpen && (
+        <div className="absolute right-0 mt-2.5 w-60 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          {/* User Info Header */}
+          <div className="p-3.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40">
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">
+              {staff?.name ?? 'Admin'}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate font-normal">
+              {email}
+            </p>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="p-1.5 space-y-0.5">
+            <button
+              type="button"
+              onClick={() => { setIsOpen(false); navigate('/pos/settings'); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-gray-800 hover:text-amber-600 dark:hover:text-amber-400 rounded-xl transition-colors"
+            >
+              <User size={15} className="text-gray-400" />
+              <span>Profile Settings</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setIsOpen(false); navigate('/pos/settings'); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-gray-800 hover:text-amber-600 dark:hover:text-amber-400 rounded-xl transition-colors"
+            >
+              <ShieldCheck size={15} className="text-gray-400" />
+              <span>Staff Access</span>
+            </button>
+
+            {/* Logout Option */}
+            <div className="pt-1 mt-1 border-t border-gray-100 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={() => { setIsOpen(false); onLogout(); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors"
+              >
+                <LogOut size={15} />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -209,8 +297,8 @@ function Sidebar({ collapsed, onToggleCollapse, onClose, onLogout, staff, userRo
         })}
       </nav>
 
-      {/* ── Footer: website link + user card ── */}
-      <div className={`py-4 border-t border-gray-200 dark:border-gray-800 shrink-0
+      {/* ── Footer: website link only ── */}
+      <div className={`py-3 border-t border-gray-200 dark:border-gray-800 shrink-0
                        flex flex-col gap-2
                        ${collapsed ? 'px-2 items-center' : 'px-3'}`}>
 
@@ -232,48 +320,9 @@ function Sidebar({ collapsed, onToggleCollapse, onClose, onLogout, staff, userRo
 
         {/* Copyright — hidden when collapsed */}
         {!collapsed && (
-          <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center px-3 pb-1 leading-snug">
+          <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center px-3 pb-0.5 leading-snug">
             © 2026 Nebula Infinite
           </p>
-        )}
-
-        {/* User card — icon-only when collapsed */}
-        {collapsed ? (
-          <div
-            title={`${staff?.name ?? 'Admin'} — ${staff?.role ?? ''}`}
-            className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center
-                       text-white text-xs font-bold shrink-0 cursor-default"
-          >
-            {staff?.avatar ?? 'A'}
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl
-                          bg-gray-100 dark:bg-gray-800/60">
-            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center
-                            text-white text-xs font-bold shrink-0">
-              {staff?.avatar ?? 'A'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                {staff?.name ?? 'Admin'}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
-                {staff?.role ?? 'ADMIN'}
-              </p>
-            </div>
-            <button
-              onClick={onLogout}
-              aria-label="Log out"
-              title="Log out"
-              className="p-1.5 rounded-lg
-                         text-gray-400 dark:text-gray-500
-                         hover:text-red-500 dark:hover:text-red-400
-                         hover:bg-gray-200 dark:hover:bg-gray-700
-                         transition-colors shrink-0"
-            >
-              <LogOut size={15} />
-            </button>
-          </div>
         )}
       </div>
     </div>
@@ -342,8 +391,6 @@ export default function POSLayout() {
           collapsed={isSidebarCollapsed}
           onToggleCollapse={toggleCollapse}
           onClose={sidebarOpen ? closeMobile : null}
-          onLogout={handleLogout}
-          staff={staff}
           userRole={userRole}
         />
       </aside>
@@ -379,24 +426,14 @@ export default function POSLayout() {
             </div>
           </div>
 
-          {/* Right: notification + clock + theme + user badge */}
+          {/* Right: notification + clock + theme + user dropdown */}
           <div className="flex items-center gap-2 sm:gap-3">
             <LiveOrderNotification />
             <LiveClock />
             <ThemeToggle />
-            <div className="flex items-center gap-2
-                            bg-gray-100 dark:bg-gray-800
-                            rounded-xl px-3 py-1.5">
-              <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center
-                              text-white text-[10px] font-bold shrink-0">
-                {staff?.avatar ?? 'A'}
-              </div>
-              <span className="text-xs font-semibold
-                               text-gray-700 dark:text-gray-300
-                               hidden sm:block">
-                {staff?.name ?? 'Admin'}
-              </span>
-            </div>
+
+            {/* 🌟 User Profile Popup Menu Trigger */}
+            <UserMenuDropdown staff={staff} onLogout={handleLogout} />
           </div>
         </header>
 

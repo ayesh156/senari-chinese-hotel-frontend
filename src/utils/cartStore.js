@@ -181,6 +181,7 @@ export const useCartStore = create((set, get) => ({
       const serviceChargeRate = isDineIn ? Number(useSettingsStore.getState().defaultServiceCharge || 0) : 0;
 
       const json = await orderApi.create({
+        source: 'POS', // 🌟 Explicit flag: Silences top bell notification and kitchen alert
         orderType: typeMapToApi[orderType] || 'DINE_IN',
         items: state.cartItems.map(i => ({ foodId: i.id, quantity: i.quantity, unitPrice: i.price })),
         subtotal,

@@ -29,8 +29,11 @@ export default function ProtectedRoute({ children, allowedRoles }) {
     restoreSession();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 🌟 Check if valid token exists in localStorage to prevent premature redirect on new tab mount
+  const hasLocalToken = Boolean(localStorage.getItem('pos-access-token'));
+
   // While restoring session, show a full-page loading spinner
-  if (isLoading) {
+  if (isLoading && hasLocalToken) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <LoadingSpinner />
@@ -38,7 +41,8 @@ export default function ProtectedRoute({ children, allowedRoles }) {
     );
   }
 
-  if (!isAuthenticated) {
+  // 🌟 If neither store state nor localStorage has credentials, redirect to login
+  if (!isAuthenticated && !hasLocalToken) {
     // Pass the attempted path so login can redirect back after success
     return <Navigate to="/pos/login" state={{ from: location }} replace />;
   }

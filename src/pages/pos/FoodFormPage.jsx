@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'react-toastify' // 🌟 Added Toast for exact backend error messages
 import {
   ChevronLeft, Save, Tag, DollarSign,
   FileText, ImageIcon, Upload, X, AlertCircle, Loader2,
@@ -88,10 +89,15 @@ export default function FoodFormPage() {
   const create = useFoodStore(s => s.create)
   const update = useFoodStore(s => s.update)
 
+  // 🌟 Local categories state guarantees options are populated even in fresh isolated tabs
+  const [localCategories, setLocalCategories] = useState([])
+
   const categoryOptions = useMemo(() => {
-    if (!Array.isArray(foodCategories)) return []
-    return foodCategories.map(c => ({ value: c.id, label: c.name }))
-  }, [foodCategories])
+    const list = localCategories.length > 0
+      ? localCategories
+      : (Array.isArray(foodCategories) && foodCategories.length > 0 ? foodCategories : [])
+    return list.map(c => ({ value: c.id, label: c.name }))
+  }, [localCategories, foodCategories])
 
   const [form, setForm] = useState(EMPTY_FORM)
   // Image catalog state: array of { id, preview, file, path }
@@ -101,11 +107,57 @@ export default function FoodFormPage() {
   const [saving, setSaving] = useState(false)
   const [fetching, setFetching] = useState(false)
 
+  // 🌟 Authenticated Multi-Endpoint Category Fetch with Instant Local State Fallback
   useEffect(() => {
-    if (!foodCategories || foodCategories.length === 0) {
-      useMasterDataStore.getState().fetchAll?.()
+    let isMounted = true
+
+    async function loadCategories() {
+      // 1. Try masterDataStore if already loaded
+      const existing = useMasterDataStore.getState().foodCategories
+      if (Array.isArray(existing) && existing.length > 0) {
+        if (isMounted) setLocalCategories(existing)
+      }
+
+      if (typeof useMasterDataStore.getState().fetchAll === 'function') {
+        try {
+          await useMasterDataStore.getState().fetchAll()
+          const fresh = useMasterDataStore.getState().foodCategories
+          if (isMounted && Array.isArray(fresh) && fresh.length > 0) {
+            setLocalCategories(fresh)
+            return
+          }
+        } catch {}
+      }
+
+      // 2. Direct authenticated API call fallback with token header
+      try {
+        const token = localStorage.getItem('pos-access-token') || localStorage.getItem('token') || ''
+        const headers = { 'Content-Type': 'application/json' }
+        if (token) headers['Authorization'] = `Bearer ${token}`
+
+        // Try primary and fallback category endpoints
+        let res = await fetch(`${API_BASE}/categories`, { headers })
+        if (!res.ok) {
+          res = await fetch(`${API_BASE}/food-categories`, { headers })
+        }
+        if (!res.ok) {
+          res = await fetch(`${API_BASE}/master-data/food-categories`, { headers })
+        }
+
+        const json = await res.json()
+        const list = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : [])
+        if (isMounted && list.length > 0) {
+          setLocalCategories(list)
+          useMasterDataStore.setState({ foodCategories: list })
+        }
+      } catch (err) {
+        console.warn('[Category fetch error]:', err)
+      }
     }
-  }, [foodCategories])
+
+    loadCategories()
+    return () => { isMounted = false }
+  }, [])
 
   // Fetch item directly from API if refreshed or not found in state store
   useEffect(() => {
@@ -163,12 +215,17 @@ export default function FoodFormPage() {
             setPrimaryId(matchedPrimary ? matchedPrimary.id : loadedCatalog[0].id)
           }
 
+          // 🌟 Safely extract and normalize categoryId as a Number
+          const resolvedCategoryId = item.categoryId != null
+            ? Number(item.categoryId)
+            : (item.category?.id != null ? Number(item.category.id) : null)
+
           setForm({
             name: item.name || '',
             code: item.code ? String(item.code) : '', // 🌟 Ensure string format from DB
             description: item.description || '',
             price: String(item.price ?? ''),
-            categoryId: item.categoryId,
+            categoryId: resolvedCategoryId,
             image: item.image || '',
             imageFile: null,
             isNew: item.isNew ?? false,
@@ -258,23 +315,46 @@ export default function FoodFormPage() {
         fd.append('primaryImage', currentPrimary.path)
       }
 
-      let success;
-      if (isEditing) {
-        success = await update(id, fd);
-      } else {
-        success = await create(fd);
-      }
+      // 🌟 Unified Result Handling: Ensures only ONE exact toast is displayed
+      const res = isEditing ? await update(id, fd) : await create(fd);
+      const isSuccess = Boolean(res?.success || res === true);
+      const backendError = res?.error || useFoodStore.getState().error;
 
-      if (success) {
+      if (isSuccess) {
+        toast.success(isEditing ? 'Food item updated successfully!' : 'Food item created successfully!');
+
+        try {
+          const channel = new BroadcastChannel('pos_foods_channel');
+          channel.postMessage({ type: isEditing ? 'FOOD_UPDATED' : 'FOOD_CREATED', id });
+          channel.close();
+        } catch {}
+
         navigate('/pos/foods');
       } else {
-        setErrors({ form: 'Failed to save food item' });
+        const errorMsg = backendError || 'Failed to save food item';
+
+        // 🌟 Trigger ONLY ONE single Toast containing the exact backend message
+        toast.error(errorMsg);
+
+        // Highlight input field and form banner
+        if (errorMsg.toLowerCase().includes('food code') || errorMsg.toLowerCase().includes('already in use')) {
+          setErrors({ code: errorMsg, form: errorMsg });
+        } else {
+          setErrors({ form: errorMsg });
+        }
       }
     } catch (err) {
-      console.error('[FoodFormPage] Save error:', err)
-      setErrors({ form: err.message })
+      console.error('[FoodFormPage] Save error:', err);
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to save food item';
+      toast.error(errorMsg);
+
+      if (errorMsg.toLowerCase().includes('food code') || errorMsg.toLowerCase().includes('already in use')) {
+        setErrors({ code: errorMsg, form: errorMsg });
+      } else {
+        setErrors({ form: errorMsg });
+      }
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -289,7 +369,10 @@ export default function FoodFormPage() {
     )
   }
 
-  const pageTitle = isEditing ? `Edit: ${form.name || 'Food Item'}` : 'Add New Food'
+  // 🌟 Live Reactive Title: Instantly tracks form.name as the user types
+  const pageTitle = isEditing 
+    ? `Edit: ${form.name.trim() ? form.name : 'Food Item'}` 
+    : (form.name.trim() ? `New: ${form.name}` : 'Add New Food');
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto">
@@ -306,9 +389,7 @@ export default function FoodFormPage() {
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="rounded-2xl border p-4 sm:p-6 bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50">
-          {errors.form && (
-            <div className="mb-6 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400">{errors.form}</div>
-          )}
+          {/* 🌟 Errors shown exclusively via Toast notification */}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="flex flex-col gap-5">
@@ -326,8 +407,9 @@ export default function FoodFormPage() {
                     value={form.code}
                     onChange={e => set('code')(e.target.value.toUpperCase())}
                     placeholder="CK01"
-                    className={`${inputCls(false)} uppercase tracking-wider font-mono font-bold text-amber-500`}
+                    className={`${inputCls(Boolean(errors.code))} uppercase tracking-wider font-mono font-bold text-amber-500`}
                   />
+                  {/* 🌟 Removed duplicate inline error; notification banner handles error visibility */}
                 </div>
               </div>
               <div>
@@ -389,7 +471,15 @@ export default function FoodFormPage() {
                 <div className="border-t border-gray-200 dark:border-gray-700/50" />
                 <ToggleSwitch checked={form.isNew} onChange={set('isNew')} label="Mark as New" sub="Display 'NEW' badge on the food card" icon={Sparkles} iconColor="text-amber-500" />
                 <div className="border-t border-gray-200 dark:border-gray-700/50" />
-                <ToggleSwitch checked={form.isFeatured} onChange={set('isFeatured')} label="Mark as Featured" sub="Highlight as a featured item" icon={Star} iconColor="text-yellow-500" />
+                {/* 🌟 Clarified Featured & POS Pinning synchronisation */}
+                <ToggleSwitch
+                  checked={form.isFeatured}
+                  onChange={set('isFeatured')}
+                  label="Mark as Featured / Pinned"
+                  sub="Highlight on web menu & pin to top in Quick POS checkout"
+                  icon={Star}
+                  iconColor="text-yellow-500"
+                />
                 <div className="border-t border-gray-200 dark:border-gray-700/50" />
                 <ToggleSwitch checked={form.isHealthy} onChange={set('isHealthy')} label="Healthy Item" sub="Mark as under 500 kcal" icon={Leaf} iconColor="text-green-500" />
               </div>

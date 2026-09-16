@@ -21,10 +21,32 @@ export default function LiveOrderNotification() {
     }
   }, [fetchLiveOrders]);
 
-  // Only active/kitchen orders (PENDING, PREPARING)
-  const liveOrders = storeOrders.filter(
-    (o) => o.status !== 'READY' && o.status !== 'COMPLETED'
-  );
+  // 🌟 Filter strictly for active WEB orders (ignores Walk-in / Quick POS transactions)
+  const liveOrders = storeOrders.filter((o) => {
+    const isNotDone = o.status !== 'READY' && o.status !== 'COMPLETED';
+    if (!isNotDone) return false;
+
+    // Detect Customer Phone from all possible object locations
+    const phone = o.phone || o.customer?.phone || '';
+    const customerName = o.customerName || o.customer?.name || '';
+
+    // Check notes JSON for web identifiers
+    let hasWebNotes = false;
+    if (o.notes) {
+      try {
+        const parsed = typeof o.notes === 'string' ? JSON.parse(o.notes) : o.notes;
+        if (parsed.phone || parsed.arrivalDate || parsed.source === 'WEB') {
+          hasWebNotes = true;
+        }
+      } catch {}
+    }
+
+    // 🌟 A Web order has an explicit WEB source, a phone number, or arrival notes
+    const isWebOrder = o.source === 'WEB' || Boolean(phone) || Boolean(o.arrivalDate) || hasWebNotes;
+    const isWalkIn = customerName === 'Walk-in Customer' && !phone;
+
+    return isWebOrder && !isWalkIn;
+  });
 
 // 🌟 Real-time Native SSE Listener (Handles order_created, invoice_finalized & default message)
   useEffect(() => {
@@ -33,46 +55,66 @@ export default function LiveOrderNotification() {
     const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP${token ? `&token=${token}` : ''}`
     const eventSource = new EventSource(sseUrl)
 
-    // 🌟 Safely push incoming order to BOTH Live Orders Queue and Invoices Table
+    // 🌟 Millisecond-level Instant SSE Handler for Live Web Orders
     const handleIncomingOrder = (rawPayload) => {
       try {
-        const order = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload
-        if (!order || !order.id) return
+        let order = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
+        if (!order) return;
+        if (order.payload && order.payload.id) order = order.payload;
+        if (!order.id) return;
 
-        // 1. Dispatch to Live Orders Kanban store
-        useLiveOrdersStore.getState().addNewOrder(order)
+        // Quick POS counter orders are explicitly excluded
+        if (order.source === 'POS') return;
 
-        // 2. Dispatch to Invoices store (re-fetches or prepends to invoices list instantly)
-        const invStore = useInvoiceStore.getState()
+        // 1. Immediately inject incoming order to Live Orders Store for instant badge bump
+        useLiveOrdersStore.getState().addNewOrder(order);
+
+        // 2. Trigger fresh background sync to guarantee full customer relations
+        const liveStore = useLiveOrdersStore.getState();
+        if (typeof liveStore.fetchLiveOrders === 'function') {
+          liveStore.fetchLiveOrders();
+        }
+
+        // 3. Sync invoices store in parallel
+        const invStore = useInvoiceStore.getState();
         if (typeof invStore.fetchOrders === 'function') {
-          invStore.fetchOrders()
+          invStore.fetchOrders();
         } else if (typeof invStore.fetchInvoices === 'function') {
-          invStore.fetchInvoices()
+          invStore.fetchInvoices();
         }
       } catch (e) {
-        console.warn('[Notification Parse Error]:', e)
+        console.warn('[Notification Parse Error]:', e);
       }
-    }
+    };
 
     // 🌟 Listen to both standard named events
     eventSource.addEventListener('order_created', (e) => {
-      const data = JSON.parse(e.data)
-      handleIncomingOrder(data.payload || data)
-    })
+      try {
+        const data = JSON.parse(e.data);
+        handleIncomingOrder(data.payload || data);
+      } catch (err) {
+        console.warn('[SSE order_created error]', err);
+      }
+    });
 
     eventSource.addEventListener('invoice_finalized', (e) => {
-      const data = JSON.parse(e.data)
-      handleIncomingOrder(data.payload || data)
-    })
+      try {
+        const data = JSON.parse(e.data);
+        handleIncomingOrder(data.payload || data);
+      } catch (err) {
+        console.warn('[SSE invoice_finalized error]', err);
+      }
+    });
 
+    // 🌟 Catch default SSE message stream as well as named events
     eventSource.onmessage = (e) => {
       try {
-        const data = JSON.parse(e.data)
-        if (data.event === 'order_created' || data.event === 'invoice_finalized') {
-          handleIncomingOrder(data.payload || data)
+        const data = JSON.parse(e.data);
+        if (data.event === 'order_created' || data.event === 'invoice_created' || data.event === 'invoice_finalized') {
+          handleIncomingOrder(data.payload || data);
         }
       } catch {}
-    }
+    };
 
     return () => eventSource.close()
   }, [])

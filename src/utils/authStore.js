@@ -16,16 +16,17 @@ const TOKEN_KEYS = {
   refreshToken: 'pos-refresh-token',
 };
 
+// 🌟 Use localStorage so tokens persist across multiple browser tabs/windows
 function storeToken(key, value) {
-  try { sessionStorage.setItem(key, value); } catch { /* noop */ }
+  try { localStorage.setItem(key, value); } catch { /* noop */ }
 }
 
 function getStoredToken(key) {
-  try { return sessionStorage.getItem(key); } catch { return null; }
+  try { return localStorage.getItem(key); } catch { return null; }
 }
 
 function removeToken(key) {
-  try { sessionStorage.removeItem(key); } catch { /* noop */ }
+  try { localStorage.removeItem(key); } catch { /* noop */ }
 }
 
 function isTokenExpired(token) {
@@ -98,11 +99,12 @@ export const useAuthStore = create(
           // Best-effort — clear locally even if server call fails
         }
 
+        // 🌟 Clean teardown: Clears cross-tab tokens and storage
         removeToken(TOKEN_KEYS.accessToken);
         removeToken(TOKEN_KEYS.refreshToken);
         try {
-          sessionStorage.removeItem('pos-auth');
           localStorage.removeItem('pos-auth');
+          sessionStorage.removeItem('pos-auth');
         } catch { /* noop */ }
 
         set({ user: null, isAuthenticated: false, isLoading: false, error: null });
@@ -191,8 +193,9 @@ export const useAuthStore = create(
     }),
     {
       name: 'pos-auth',
-      storage: createJSONStorage(() => sessionStorage),
-      // Only persist user object and isAuthenticated (tokens are in sessionStorage separately)
+      // 🌟 Use localStorage JSON storage engine so new tabs load with active session
+      storage: createJSONStorage(() => localStorage),
+      // Persist user object and authentication status across tabs
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,

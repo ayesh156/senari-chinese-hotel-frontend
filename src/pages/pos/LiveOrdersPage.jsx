@@ -344,30 +344,47 @@ export default function LiveOrdersPage() {
   // ── Fetch on mount ────────────────────────────────────────────────────────
   useEffect(() => { fetchLiveOrders() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Native SSE real-time listener (Pure SSE, No Socket.io) ─────────────────
+  // ── Native SSE real-time listener (Listens to both order_created & invoice_finalized) ───
   useEffect(() => {
     const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')
-    const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP`
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken') || ''
+    const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP${token ? `&token=${token}` : ''}`
     const eventSource = new EventSource(sseUrl)
+
+    const handleIncoming = (raw) => {
+      try {
+        let data = typeof raw === 'string' ? JSON.parse(raw) : raw
+        let order = data.payload || data
+        if (order && order.id) {
+          // 🌟 Instantly prepend new Web order to board and trigger fresh sync
+          addNewOrder(order)
+          fetchLiveOrders()
+        }
+      } catch (err) {
+        console.warn('[LiveOrders SSE Parse Error]', err)
+      }
+    }
+
+    // Listen to standard named events
+    eventSource.addEventListener('order_created', (e) => handleIncoming(e.data))
+    eventSource.addEventListener('invoice_created', (e) => handleIncoming(e.data))
+    eventSource.addEventListener('invoice_finalized', (e) => handleIncoming(e.data))
 
     eventSource.onmessage = (event) => {
       try {
-        const { event: evName, payload } = JSON.parse(event.data)
-        if (evName === 'invoice_finalized' && payload) {
-          // Pre-order converted to Live Order Queue item
-          addNewOrder(payload)
-        } else if (evName === 'order_status_changed' && payload) {
-          updateOrderStatus(payload)
+        const parsed = JSON.parse(event.data)
+        if (parsed.event === 'order_created' || parsed.event === 'invoice_finalized') {
+          handleIncoming(parsed.payload || parsed)
+        } else if (parsed.event === 'order_status_changed' && parsed.payload) {
+          updateOrderStatus(parsed.payload)
         }
-      } catch (e) {
-        console.warn('[SSE Live Order Parse Error]', e)
-      }
+      } catch {}
     }
 
     return () => { 
       eventSource.close()
     }
-  }, [addNewOrder, updateOrderStatus])
+  }, [addNewOrder, updateOrderStatus, fetchLiveOrders])
 
   // ── Advance order status via API ──────────────────────────────────────────
   async function handleAdvance(orderId, nextStatus) {

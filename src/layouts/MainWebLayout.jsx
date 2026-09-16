@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, NavLink } from 'react-router-dom'
 import { ShoppingCart, Menu, X, Sun, Moon, Monitor } from 'lucide-react'
+import { ToastContainer } from 'react-toastify' // 🌟 Added Toast container
+import 'react-toastify/dist/ReactToastify.css'   // 🌟 Added Toast styles
 import { useTheme } from '../utils/ThemeContext'
 import { useCartStore, selectCartCount } from '../utils/store'
 import SlideCart from '../components/ui/SlideCart'
@@ -261,6 +263,8 @@ function Footer() {
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 export default function MainWebLayout() {
+  const { theme } = useTheme() // 🌟 Match toast theme with dark/light mode
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900
                     text-gray-900 dark:text-gray-100 transition-colors duration-200
@@ -271,6 +275,20 @@ export default function MainWebLayout() {
       </main>
       <Footer />
       <SlideCart />
+      {/* 🌟 Web Client Toast Notification Container (Positioned Top-Right like POS standard) */}
+      <ToastContainer
+        position="top-right"
+        autoClose={2200}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss={false}
+        draggable
+        pauseOnHover
+        theme={theme === 'dark' ? 'dark' : 'light'}
+        className="mt-14" // 🌟 Navbar එකට යටින් පිළිවෙළට දිස්වීම සඳහා සුළු margin එකක්
+      />
       {/* FABs sit at z-40 — below SlideCart (z-50) so they don't overlap the open cart panel */}
       <FloatingActionButtons />
     </div>

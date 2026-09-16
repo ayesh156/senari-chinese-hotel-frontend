@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Clock, Flame, ShoppingCart, Sparkles, Star } from 'lucide-react'
+import { toast } from 'react-toastify' // 🌟 Added Toast notification
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
 import { useCartStore } from '../../utils/store'
 import { fmtCurrencyDirect } from '../../utils/currency'
@@ -90,6 +91,10 @@ export default function FoodCard({
     e.preventDefault()
     e.stopPropagation()
     addToCart({ id, image, name, category, price })
+    // 🌟 Instant Toast notification on item add
+    toast.success(`${name} added to cart!`, {
+      icon: '🛒',
+    })
   }
 
   return (

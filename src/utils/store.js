@@ -24,6 +24,7 @@ export const useCartStore = create(
 
       // ── Actions ────────────────────────────────────────────
 
+      // 🌟 Silent Add to Cart: Increments badge count in Navbar without auto-opening SlideCart
       addToCart: (product) => {
         const existing = get().cartItems.find(i => i.id === product.id)
         if (existing) {
@@ -37,8 +38,7 @@ export const useCartStore = create(
             cartItems: [...state.cartItems, { ...product, quantity: 1 }],
           }))
         }
-        // Auto-open the cart on first add
-        if (!get().isCartOpen) set({ isCartOpen: true })
+        // 🌟 Auto-open removed: Cart count updates quietly on top Navbar/drawer button
       },
 
       removeFromCart: (productId) =>

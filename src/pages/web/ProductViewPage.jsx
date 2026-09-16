@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Clock, Flame, ShoppingCart, Minus, Plus, Sparkles, UtensilsCrossed, Loader2 } from 'lucide-react'
+import { toast } from 'react-toastify' // 🌟 Added Toast notification for web view
 import AnimatedSection from '../../components/ui/AnimatedSection'
 import FoodCard from '../../components/ui/FoodCard'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
@@ -213,6 +214,7 @@ export default function ProductViewPage() {
     return () => { cancelled = true }
   }, [id])
 
+  // 🌟 Silent Add to Cart: Adds item(s), triggers top Toast alert, and leaves sidebar closed
   const handleAddToCart = () => {
     if (!food) return
     const categoryName = food.category?.name || food.category || ''
@@ -225,7 +227,11 @@ export default function ProductViewPage() {
         price: Number(food.price),
       })
     }
-    if (!useCartStore.getState().isCartOpen) toggleCart()
+    
+    // 🌟 Instant Toast notification (No intrusive sidebar drawer opening)
+    toast.success(`${qty > 1 ? `${qty}x ` : ''}${food.name} added to cart!`, {
+      icon: '🛒',
+    })
   }
 
   const lineTotal = food ? Number(food.price) * qty : 0

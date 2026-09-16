@@ -9,8 +9,17 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 // ── Token helpers ────────────────────────────────────────────────────────────
 const TOKEN_KEY = 'pos-access-token';
 
+// 🌟 Cross-Tab Token Resolver: Checks localStorage first so newly opened tabs remain authenticated
 function getAccessToken() {
-  try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; }
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+      || localStorage.getItem('token')
+      || sessionStorage.getItem(TOKEN_KEY)
+      || sessionStorage.getItem('token')
+      || null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Error class ──────────────────────────────────────────────────────────────

@@ -48,14 +48,12 @@ export const useLiveOrdersStore = create((set, get) => ({
   },
 
   // 🌟 Real-time Order Placement Handler (Prepend to top of Kanban queue)
-  addNewOrder: (order) => {
+// 🌟 Prepend new incoming order to the top of the queue
+  addNewOrder: (order) =>
     set((state) => {
-      // Prevent duplicate order insertion
-      if (state.orders.some(o => o.id === order.id)) return state;
-      // Prepend newest incoming order so it appears instantly at the very top
-      return { orders: [order, ...state.orders] };
-    });
-  },
+      if (state.orders.some((o) => o.id === order.id)) return state;
+      return { orders: [order, ...state.orders] }; // 🌟 Newest always on top
+    }),
 
   advanceOrder: async (id, status) => {
     try {

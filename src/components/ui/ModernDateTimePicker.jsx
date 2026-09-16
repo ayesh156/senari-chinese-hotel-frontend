@@ -35,15 +35,30 @@ export default function ModernDateTimePicker({
   const totalDays = new Date(year, month + 1, 0).getDate()
   const today = new Date().toISOString().split('T')[0]
 
-  // Time Slots generation (30 min increments between 8:00 AM and 10:00 PM)
-  const timeSlots = []
+  // 🌟 Clean Slot Generation & Past Time Filtering
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = String(now.getMonth() + 1).padStart(2, '0')
+  const currentDay = String(now.getDate()).padStart(2, '0')
+  const todayFormatted = `${currentYear}-${currentMonth}-${currentDay}`
+  const isSelectedToday = !dateValue || dateValue === todayFormatted
+
+  // Base restaurant slots between 8:00 AM (08:00) and 10:00 PM (22:00)
+  const allSlots = []
   for (let h = 8; h <= 22; h++) {
     for (let m = 0; m < 60; m += 30) {
       const hh = String(h).padStart(2, '0')
       const mm = String(m).padStart(2, '0')
-      timeSlots.push(`${hh}:${mm}`)
+      allSlots.push(`${hh}:${mm}`)
     }
   }
+
+  // 🌟 Filter out passed slots for today so the user never sees an ocean of disabled gray buttons
+  const availableSlots = allSlots.filter((slot) => {
+    if (!isSelectedToday) return true
+    const [slotH, slotM] = slot.split(':').map(Number)
+    return slotH > now.getHours() || (slotH === now.getHours() && slotM > now.getMinutes())
+  })
 
   const formatDisplayTime = (timeStr) => {
     if (!timeStr) return '--:-- --'
@@ -153,28 +168,43 @@ export default function ModernDateTimePicker({
         </button>
 
         {showTimePicker && (
-          <div className="absolute bottom-full left-0 mb-2 z-[90] p-2.5 rounded-2xl border
+          <div className="absolute bottom-full left-0 mb-2 z-[90] p-3 rounded-2xl border
                           bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700
-                          shadow-2xl w-56 select-none animate-in fade-in zoom-in-95 duration-100">
-            <div className="max-h-48 overflow-y-auto pr-1 grid grid-cols-2 gap-1.5 scrollbar-thin scrollbar-thumb-amber-500/20">
-              {timeSlots.map((timeStr) => (
-                <button
-                  key={timeStr}
-                  type="button"
-                  onClick={() => {
-                    onTimeChange(timeStr)
-                    setShowTimePicker(false)
-                  }}
-                  className={`px-2 py-1.5 rounded-lg text-xs font-semibold text-center transition ${
-                    timeValue === timeStr
-                      ? 'bg-amber-500 text-white shadow-sm font-bold'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-                  }`}
-                >
-                  {formatDisplayTime(timeStr)}
-                </button>
-              ))}
-            </div>
+                          shadow-2xl w-60 select-none animate-in fade-in zoom-in-95 duration-100">
+            {availableSlots.length === 0 ? (
+              <div className="py-4 px-2 text-center">
+                <p className="text-xs font-bold text-amber-500">Orders closed for today</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                  Please select tomorrow's date for advance pre-orders.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100 dark:border-gray-800 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <span>Available Times</span>
+                  <span className="text-amber-500 font-bold">{availableSlots.length} slots</span>
+                </div>
+                <div className="max-h-52 overflow-y-auto pr-1 grid grid-cols-2 gap-1.5 scrollbar-thin scrollbar-thumb-amber-500/20">
+                  {availableSlots.map((timeStr) => (
+                    <button
+                      key={timeStr}
+                      type="button"
+                      onClick={() => {
+                        onTimeChange(timeStr)
+                        setShowTimePicker(false)
+                      }}
+                      className={`px-2.5 py-2 rounded-xl text-xs font-bold text-center transition-all ${
+                        timeValue === timeStr
+                          ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30 scale-[1.02]'
+                          : 'text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/60 hover:bg-amber-500/10 hover:text-amber-500'
+                      }`}
+                    >
+                      {formatDisplayTime(timeStr)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -72,13 +72,15 @@ export default function MenuCard({ item, qty, onAdd }) {
         <Pin size={12} className={item.isFeatured ? "fill-white rotate-45" : ""} />
       </span>
 
-      {/* 🌟 Food Code Badge (Displayed below pin or top corner) */}
+    {/* 🌟 Food Code Badge (Smart alignment based on pin visibility) */}
       {item.code && (
-        <span className="absolute top-2 left-10 z-10 bg-gray-950/80 dark:bg-gray-900/90 text-amber-400 border border-amber-400/40 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md backdrop-blur-sm shadow-sm uppercase tracking-wider">
+        <span className={`absolute top-2 z-10 bg-gray-950/85 dark:bg-gray-900/90 text-amber-400 border border-amber-400/40 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md backdrop-blur-sm shadow-sm uppercase tracking-wider ${
+          item.isFeatured ? 'left-10' : 'left-2 group-hover:left-10 transition-all duration-200'
+        }`}>
           {item.code}
         </span>
       )}
-
+      
       {item.isNew && !item.isFeatured && (
         <span className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">New</span>
       )}

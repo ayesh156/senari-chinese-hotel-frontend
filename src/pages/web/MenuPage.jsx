@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   SlidersHorizontal, X, RotateCcw, Sparkles, Leaf, Loader2,
 } from 'lucide-react'
+import { toast } from 'react-toastify' // 🌟 Added Toast
 import AnimatedSection from '../../components/ui/AnimatedSection'
 import ModernSelect from '../../components/ui/ModernSelect'
 import FoodCard from '../../components/ui/FoodCard'
@@ -201,6 +202,10 @@ function ListItem({ item }) {
   const handleAdd = (e) => {
     e.preventDefault(); e.stopPropagation()
     addToCart({ id: item.id, image: item.image, name: item.name, category: item.category?.name || item.category, price: item.price })
+    // 🌟 Toast notification on list view item add
+    toast.success(`${item.name} added to cart!`, {
+      icon: '🛒',
+    })
   }
   const categoryName = item.category?.name || item.category || ''
   return (

@@ -53,8 +53,9 @@ export default function ModernPagination({
   const pages = buildPages()
 
   // ── Shared button base classes ────────────────────────────────────────────
+  // 🌟 Adaptive sizing: h-8 / min-w-[30px] on compact screens, scaling up to h-9 on desktop
   const base =
-    'inline-flex items-center justify-center min-w-[36px] h-9 px-2 rounded-lg text-sm font-semibold transition-all duration-150 select-none'
+    'inline-flex items-center justify-center min-w-[28px] sm:min-w-[36px] h-8 sm:h-9 px-1.5 sm:px-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-150 select-none'
 
   const activeBtn =
     `${base} bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/30 scale-105`
@@ -72,11 +73,10 @@ export default function ModernPagination({
     }`
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3
-                    px-4 py-4 border-t border-gray-100 dark:border-gray-800">
+    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 border-t border-gray-100 dark:border-gray-800">
 
-      {/* Left: result count */}
-      <p className="text-sm text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
+      {/* Left: result count - Responsive text size */}
+      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
         Showing{' '}
         <span className="font-semibold text-gray-700 dark:text-gray-300">{start}</span>
         {' '}to{' '}
@@ -86,8 +86,8 @@ export default function ModernPagination({
         {' '}results
       </p>
 
-      {/* Right: navigation controls */}
-      <div className="flex items-center gap-1.5 flex-wrap justify-center">
+      {/* Right: navigation controls - Auto-shrinks smoothly on narrow widths */}
+      <div className="flex items-center gap-1 shrink-0 overflow-x-auto max-w-full py-0.5">
 
         {/* First page */}
         <button

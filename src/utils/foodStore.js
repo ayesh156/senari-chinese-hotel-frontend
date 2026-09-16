@@ -23,35 +23,43 @@ export const useFoodStore = create((set, get) => ({
     }
   },
 
+  // 🌟 Clean Create: Extracts exact backend validation error and forwards to Form without duplicate toasts
   create: async (formData) => {
+    set({ loading: true, error: null });
     try {
       const json = await foodApi.create(formData);
       if (json.success) {
         await get().fetchAll();
-        toast.success('Food item added successfully');
-        return true;
+        set({ loading: false, error: null });
+        return { success: true, data: json.data };
       }
-      toast.error(json.error || 'Failed to create food item');
-      return false;
+      const errMsg = json.error || 'Failed to create food item';
+      set({ loading: false, error: errMsg });
+      return { success: false, error: errMsg };
     } catch (e) {
-      toast.error(e?.response?.data?.message || e.message || 'Failed to create food item');
-      return false;
+      const errMsg = e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to create food item';
+      set({ loading: false, error: errMsg });
+      return { success: false, error: errMsg };
     }
   },
 
+  // 🌟 Clean Update: Captures exact backend duplicate code message and passes to caller (stops double toast)
   update: async (id, data) => {
+    set({ loading: true, error: null });
     try {
       const json = await foodApi.update(id, data);
       if (json.success) {
         await get().fetchAll();
-        toast.success('Food item updated successfully');
-        return true;
+        set({ loading: false, error: null });
+        return { success: true, data: json.data };
       }
-      toast.error(json.error || 'Failed to update food item');
-      return false;
+      const errMsg = json.error || 'Failed to update food item';
+      set({ loading: false, error: errMsg });
+      return { success: false, error: errMsg };
     } catch (e) {
-      toast.error(e?.response?.data?.message || e.message || 'Failed to update food item');
-      return false;
+      const errMsg = e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to update food item';
+      set({ loading: false, error: errMsg });
+      return { success: false, error: errMsg };
     }
   },
 
