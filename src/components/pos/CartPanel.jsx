@@ -24,7 +24,12 @@ export default function CartPanel({
   const discountAmt = discountType === '%'
     ? Math.min(subtotal, Math.round(subtotal * rawDiscount / 100))
     : Math.min(subtotal, rawDiscount);
-  const total = Math.max(0, subtotal - discountAmt);
+  
+  // 🌟 Calculate Dine-in Service Charge from Settings store
+  const isDineIn = orderType === 'Dine-in' || orderType === 'DINE_IN';
+  const serviceChargeRate = isDineIn ? Number(useSettingsStore.getState().defaultServiceCharge || 0) : 0;
+  const serviceChargeAmt = isDineIn ? Math.round((subtotal * serviceChargeRate) / 100) : 0;
+  const total = Math.max(0, subtotal + serviceChargeAmt - discountAmt);
   const givenCash = parseFloat(customerCash) || 0;
   const change = givenCash - total;
   const hasChange = givenCash > 0 && change >= 0;
@@ -111,6 +116,13 @@ export default function CartPanel({
             <span className="text-xs text-gray-400">Subtotal</span>
             <span className="text-xs font-semibold text-gray-600">{currencySymbol} {fmt(subtotal)}</span>
           </div>
+          {/* 🌟 Dine-in Service Charge Live Breakdown */}
+          {serviceChargeAmt > 0 && (
+            <div className="flex justify-between">
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Service Charge ({serviceChargeRate}%)</span>
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">+ {currencySymbol} {fmt(serviceChargeAmt)}</span>
+            </div>
+          )}
           {discountAmt > 0 && (
             <div className="flex justify-between">
               <span className="text-xs font-medium text-emerald-600">Discount</span>

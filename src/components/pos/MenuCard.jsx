@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Utensils } from 'lucide-react';
+import { Plus, Utensils, Pin } from 'lucide-react'; // 🌟 Added Pin icon
 import { fmtCurrencyDirect } from '../../utils/currency';
 import { useSettingsStore } from '../../utils/settingsStore';
+import { useFoodStore } from '../../utils/foodStore'; // 🌟 Added foodStore for instant pin/unpin
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
 const fmt = (n) => Number(n).toLocaleString('en-LK');
@@ -38,12 +39,47 @@ function MenuCardImage({ image }) {
 
 export default function MenuCard({ item, qty, onAdd }) {
   const currencySymbol = useSettingsStore(s => s.currencySymbol || 'Rs.')
-  return (
+  const updateFood = useFoodStore(s => s.update); // 🌟 Direct store update hook
 
+  // 🌟 Toggle Pin / Featured status without triggering cart addition
+  const handleTogglePin = async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    await updateFood(item.id, { isFeatured: !item.isFeatured });
+  };
+
+  return (
     <button onClick={onAdd}
-      className="group relative flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 text-left active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+      className={`group relative flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-gray-900 border shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 text-left active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+        item.isFeatured
+          ? 'border-amber-400/80 dark:border-amber-500/60 ring-1 ring-amber-400/30'
+          : 'border-gray-100 dark:border-gray-800'
+      }`}>
       <MenuCardImage image={item.image} />
-      {item.isNew && (
+
+      {/* 🌟 Interactive Creative Pin Action (Visible always if pinned, or on hover to pin) */}
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={handleTogglePin}
+        title={item.isFeatured ? "Unpin item" : "Pin item to top"}
+        className={`absolute top-2 left-2 z-10 p-1.5 rounded-xl backdrop-blur-md transition-all duration-200 shadow-md ${
+          item.isFeatured
+            ? 'bg-amber-500 text-white shadow-amber-500/40 opacity-100 scale-100 ring-2 ring-white/60 dark:ring-gray-900/60'
+            : 'bg-gray-900/60 text-white/80 hover:text-white hover:bg-amber-500 opacity-0 group-hover:opacity-100 hover:scale-110'
+        }`}
+      >
+        <Pin size={12} className={item.isFeatured ? "fill-white rotate-45" : ""} />
+      </span>
+
+      {/* 🌟 Food Code Badge (Displayed below pin or top corner) */}
+      {item.code && (
+        <span className="absolute top-2 left-10 z-10 bg-gray-950/80 dark:bg-gray-900/90 text-amber-400 border border-amber-400/40 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md backdrop-blur-sm shadow-sm uppercase tracking-wider">
+          {item.code}
+        </span>
+      )}
+
+      {item.isNew && !item.isFeatured && (
         <span className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">New</span>
       )}
       {qty > 0 && (

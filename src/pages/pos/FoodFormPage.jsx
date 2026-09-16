@@ -18,6 +18,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 // ── Constants ──────────────────────────────────────────────────────────────────
 const EMPTY_FORM = {
   name:        '',
+  code:        '',
   description: '',
   price:       '',
   categoryId:  null,
@@ -112,6 +113,15 @@ export default function FoodFormPage() {
       if (!form.categoryId && categoryOptions[0]) {
         setForm(f => ({ ...f, categoryId: categoryOptions[0].value }))
       }
+      // 🌟 Fetch auto-increment next code on new item form load
+      fetch(`${API_BASE}/foods/next-code`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.success && json.data?.nextCode) {
+            setForm(f => ({ ...f, code: json.data.nextCode }))
+          }
+        })
+        .catch(err => console.error('Failed to fetch next food code:', err))
       return
     }
 
@@ -155,6 +165,7 @@ export default function FoodFormPage() {
 
           setForm({
             name: item.name || '',
+            code: item.code ? String(item.code) : '', // 🌟 Ensure string format from DB
             description: item.description || '',
             price: String(item.price ?? ''),
             categoryId: item.categoryId,
@@ -209,6 +220,8 @@ export default function FoodFormPage() {
     try {
       const fd = new FormData()
       fd.append('name', form.name.trim())
+      // 🌟 Always append code (even if empty, to allow removing or updating)
+      fd.append('code', form.code ? form.code.trim().toUpperCase().slice(0, 5) : '')
       fd.append('price', form.price)
       fd.append('categoryId', String(form.categoryId))
       fd.append('description', form.description)
@@ -299,10 +312,23 @@ export default function FoodFormPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="flex flex-col gap-5">
-              <div>
-                <FieldLabel icon={Tag} required>Item Name</FieldLabel>
-                <input type="text" value={form.name} onChange={e => set('name')(e.target.value)} placeholder="e.g. Chicken Kottu" className={inputCls(errors.name)} />
-                <FieldError msg={errors.name} />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <FieldLabel icon={Tag} required>Item Name</FieldLabel>
+                  <input type="text" value={form.name} onChange={e => set('name')(e.target.value)} placeholder="e.g. Chicken Kottu" className={inputCls(errors.name)} />
+                  <FieldError msg={errors.name} />
+                </div>
+                <div>
+                  <FieldLabel icon={Tag}>Food Code</FieldLabel>
+                  <input
+                    type="text"
+                    maxLength={5}
+                    value={form.code}
+                    onChange={e => set('code')(e.target.value.toUpperCase())}
+                    placeholder="CK01"
+                    className={`${inputCls(false)} uppercase tracking-wider font-mono font-bold text-amber-500`}
+                  />
+                </div>
               </div>
               <div>
                 <FieldLabel icon={FileText}>Description</FieldLabel>

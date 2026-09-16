@@ -139,7 +139,11 @@ export function buildReceiptData(order = {}, opts = {}) {
 
   const subtotal = Number(order.subtotal || 0);
   const discount = Number(order.discount || 0);
-  const total = Number(order.total || 0);
+  // 🌟 Direct reading from Order table columns
+  const serviceChargeRate = Number(order.serviceChargeRate || 0);
+  const serviceCharge = Number(order.serviceCharge || 0);
+
+  const total = Number(order.total || (subtotal + serviceCharge - discount));
   const amountPaid = Number(order.amountPaid || 0);
   const paymentStatus = order.paymentStatus || "UNPAID";
   if (!paymentMethod) paymentMethod = "Cash";
@@ -161,6 +165,7 @@ export function buildReceiptData(order = {}, opts = {}) {
     // money
     items,
     subtotal,
+    serviceCharge, // 🌟 Passed to receipt renderer
     discount,
     total,
     amountPaid,
@@ -354,6 +359,12 @@ export function buildReceiptBody(d) {
     })
     .join("");
 
+// 🌟 Display Service Charge with its percentage tag
+  const serviceChargeRow =
+    d.serviceCharge > 0
+      ? `<div class="summary-row"><span>Service Charge (${d.serviceChargeRate || 10}%)</span><span>+ ${currency(d.serviceCharge)}</span></div>`
+      : "";
+
   const discountRow =
     d.discount > 0
       ? `<div class="summary-row"><span>Discount</span><span>- ${currency(d.discount)}</span></div>`
@@ -394,8 +405,9 @@ export function buildReceiptBody(d) {
     <div class="divider-dotted"></div>
 
     <!-- ── SUMMARY / TOTALS ── -->
-    <div class="summary-section">
+   <div class="summary-section">
       <div class="summary-row"><span>Subtotal</span><span>${currency(d.subtotal)}</span></div>
+      ${serviceChargeRow}
       ${discountRow}
     </div>
 

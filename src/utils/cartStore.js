@@ -5,6 +5,7 @@
  */
 import { create } from 'zustand';
 import { orderApi } from '../api/order.api';
+import { useSettingsStore } from './settingsStore'; // 🌟 Added settings store for service charge rate
 
 const typeMapToApi = { 'Dine-in': 'DINE_IN', 'Takeaway': 'TAKEAWAY', 'Delivery': 'DELIVERY' };
 const typeMapFromApi = { 'DINE_IN': 'Dine-in', 'TAKEAWAY': 'Takeaway', 'DELIVERY': 'Delivery' };
@@ -32,8 +33,19 @@ export const useCartStore = create((set, get) => ({
       : Math.min(subtotal, raw);
   },
 
+  // 🌟 Calculate Grand Total including Dine-in Service Charge
+  getServiceChargeAmount: () => {
+    const isDineIn = get().orderType === 'Dine-in' || get().orderType === 'DINE_IN';
+    if (!isDineIn) return 0;
+    const rate = Number(useSettingsStore.getState().defaultServiceCharge || 0);
+    return Math.round((get().getSubtotal() * rate) / 100);
+  },
+
   getGrandTotal: () => {
-    return Math.max(0, get().getSubtotal() - get().getDiscountAmount());
+    const subtotal = get().getSubtotal();
+    const discount = get().getDiscountAmount();
+    const serviceCharge = get().getServiceChargeAmount();
+    return Math.max(0, subtotal + serviceCharge - discount);
   },
 
   // ── Actions ───────────────────────────────────────────────────────────
@@ -79,7 +91,11 @@ export const useCartStore = create((set, get) => ({
 
   clearCart: () => set({ cartItems: [], discount: '', customerCash: '', customerName: '' }),
 
-  setOrderType: (orderType) => set({ orderType }),
+  // 🌟 Auto-toggle Service Charge percentage on Dine-in mode selection
+  setOrderType: (orderType) => {
+    const isDineIn = orderType === 'Dine-in' || orderType === 'DINE_IN';
+    set({ orderType });
+  },
   setDiscount: (discount) => set({ discount }),
   setDiscountType: (discountType) => set({ discountType }),
   setCustomerCash: (customerCash) => set({ customerCash }),
@@ -119,13 +135,20 @@ export const useCartStore = create((set, get) => ({
     try {
       const subtotal = state.getSubtotal();
       const discountAmt = state.getDiscountAmount();
+      const serviceCharge = state.getServiceChargeAmount();
       const total = state.getGrandTotal();
+
+      // 🌟 Extract Dine-in service charge rate and amount
+      const isDineIn = orderType === 'Dine-in' || orderType === 'DINE_IN';
+      const serviceChargeRate = isDineIn ? Number(useSettingsStore.getState().defaultServiceCharge || 0) : 0;
 
       const json = await orderApi.update(orderId, {
         orderType: typeMapToApi[orderType] || 'DINE_IN',
         items: state.cartItems.map(i => ({ foodId: i.id, quantity: i.quantity, unitPrice: i.price })),
         subtotal,
         discount: discountAmt,
+        serviceChargeRate, // 🌟 Save to DB column
+        serviceCharge,     // 🌟 Save to DB column
         total,
         amountPaid: Number(amountPaid) || 0,
         customerName: customerName || 'Walk-in Customer',
@@ -150,13 +173,20 @@ export const useCartStore = create((set, get) => ({
     try {
       const subtotal = state.getSubtotal();
       const discountAmt = state.getDiscountAmount();
+      const serviceCharge = state.getServiceChargeAmount();
       const total = state.getGrandTotal();
+
+      // 🌟 Extract Dine-in service charge rate and amount
+      const isDineIn = orderType === 'Dine-in' || orderType === 'DINE_IN';
+      const serviceChargeRate = isDineIn ? Number(useSettingsStore.getState().defaultServiceCharge || 0) : 0;
 
       const json = await orderApi.create({
         orderType: typeMapToApi[orderType] || 'DINE_IN',
         items: state.cartItems.map(i => ({ foodId: i.id, quantity: i.quantity, unitPrice: i.price })),
         subtotal,
         discount: discountAmt,
+        serviceChargeRate, // 🌟 Save to DB column
+        serviceCharge,     // 🌟 Save to DB column
         total,
         amountPaid: Number(amountPaid) || 0,
         customerName: customerName || 'Walk-in Customer',

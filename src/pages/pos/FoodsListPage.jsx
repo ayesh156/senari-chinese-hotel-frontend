@@ -351,6 +351,11 @@ export default function FoodsListPage() {
                     <td className="px-4 py-3"><FoodThumbnail imagePath={item.image} alt={item.name} /></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        {item.code && (
+                          <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            {item.code}
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => navigate(`/pos/foods/edit/${item.id}`)}
@@ -358,6 +363,11 @@ export default function FoodsListPage() {
                         >
                           {item.name}
                         </button>
+                        {item.isFeatured && (
+                          <span title="Pinned to top in Quick Invoice" className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-md leading-none flex items-center gap-0.5">
+                            PINNED
+                          </span>
+                        )}
                         {item.isNew && <span className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-md leading-none">NEW</span>}
                       </div>
                       {item.description && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 max-w-xs truncate">{item.description}</p>}

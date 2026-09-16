@@ -296,12 +296,12 @@ function BillingPosTab() {
             max={100}
           />
           <NumberField
-            label="Default Service Charge"
+            label="Dine-in Service Charge Rate"
             value={form.defaultServiceCharge}
             onChange={set('defaultServiceCharge')}
             suffix="%"
             placeholder="10"
-            hint="Optional service charge on dine-in orders"
+            hint="Auto-applied to Subtotal when Dine-in is selected in Quick Invoice"
             max={100}
           />
         </div>
