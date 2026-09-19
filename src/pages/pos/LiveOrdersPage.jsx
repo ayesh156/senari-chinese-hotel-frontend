@@ -81,8 +81,32 @@ const TYPE_CONFIG = {
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
+// 🌟 12-Hour Time Formatter (hh:mm A / PM ආකෘතියෙන් පෙන්වීම)
 function formatTime(iso) {
-  return new Date(iso).toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
+// 🌟 ඕනෑම 24-hour හෝ 12-hour time string එකක් "01:00 PM" වැනි 12-hour ආකෘතියට හැරවීමේ helper එක
+function to12HourTime(timeStr) {
+  if (!timeStr) return ''
+  const trimmed = String(timeStr).trim()
+
+  // දැනටමත් AM හෝ PM අඩංගු නම් ඒ ආකාරයෙන්ම ලබා දෙයි
+  if (/am|pm/i.test(trimmed)) {
+    return trimmed.toUpperCase()
+  }
+
+  // 24-hour format එකක් නම් (උදා: "13:00", "09:30") 12-hour AM/PM ආකෘතියට හරවයි
+  const parts = trimmed.split(':')
+  if (parts.length >= 2) {
+    const hours = parseInt(parts[0], 10)
+    const minutes = parts[1]
+    const modifier = hours >= 12 ? 'PM' : 'AM'
+    const formattedHours = hours % 12 || 12
+    return `${String(formattedHours).padStart(2, '0')}:${minutes} ${modifier}`
+  }
+
+  return trimmed
 }
 
 function minutesAgo(iso) {
@@ -92,16 +116,20 @@ function minutesAgo(iso) {
   return `${diff} mins ago`
 }
 
-// 🌟 Helper to extract Customer Name and Phone from notes JSON (Web orders)
+// 🌟 Helper to extract Customer Name, Phone, and Future Pre-order schedule from notes JSON
 function resolveCustomerInfo(order) {
   let name = order.customer?.name || order.customerName || ''
   let phone = order.customer?.phone || order.phone || ''
+  let arrivalDate = order.arrivalDate || ''
+  let arrivalTime = order.arrivalTime || ''
 
-  if ((!name || name === 'Walk-in Customer' || !phone) && order.notes) {
+  if (order.notes) {
     try {
       const parsed = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes
-      if (parsed.customerName) name = parsed.customerName
-      if (parsed.phone) phone = parsed.phone
+      if (parsed.customerName && (!name || name === 'Walk-in Customer')) name = parsed.customerName
+      if (parsed.phone && !phone) phone = parsed.phone
+      if (parsed.arrivalDate) arrivalDate = parsed.arrivalDate
+      if (parsed.arrivalTime) arrivalTime = parsed.arrivalTime
     } catch {
       // ignore parse error
     }
@@ -109,7 +137,9 @@ function resolveCustomerInfo(order) {
 
   return {
     name: name || 'Walk-in Customer',
-    phone: phone || ''
+    phone: phone || '',
+    arrivalDate,
+    arrivalTime
   }
 }
 
@@ -139,6 +169,13 @@ function OrderCard({ order, col, onAdvance }) {
             <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${typeCfg.badge}`}>
               {typeCfg.label}
             </span>
+
+            {/* 🌟 Special Schedule Badge: 12-hour (AM/PM) ආකෘතියෙන් පෙන්වීම */}
+            {customerInfo.arrivalDate && (
+              <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/15 dark:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 animate-pulse">
+                📅 {customerInfo.arrivalDate} {customerInfo.arrivalTime ? `@ ${to12HourTime(customerInfo.arrivalTime)}` : ''}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 mt-1">
             <User size={11} className="text-gray-400 shrink-0" />
@@ -212,20 +249,41 @@ function OrderCard({ order, col, onAdvance }) {
         )}
       </div>
 
-      {/* Advance action */}
-      {col.nextStatus && (
-        <div className="px-4 pb-4">
-          <button
-            onClick={() => onAdvance(order.id, col.nextStatus)}
-            className={`w-full flex items-center justify-center gap-1.5
-                        py-2 rounded-xl text-xs font-bold
-                        transition-colors duration-150 ${col.nextColor}`}
-          >
-            {col.nextLabel}
-            <ArrowRight size={13} />
-          </button>
-        </div>
-      )}
+      {/* 🌟 Advance action with Future Date Lock Protection */}
+      {col.nextStatus && (() => {
+        // අනාගත දිනයක්දැයි පරීක්ෂා කිරීම (අද දිනයට වඩා ඉදිරියෙන් ඇත්නම් Lock වේ)
+        let isFutureDate = false;
+        if (customerInfo.arrivalDate) {
+          const todayStr = new Date().toISOString().split('T')[0];
+          if (customerInfo.arrivalDate > todayStr) {
+            isFutureDate = true;
+          }
+        }
+
+        if (isFutureDate) {
+          return (
+            <div className="px-4 pb-4">
+              <div className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-gray-100 dark:bg-gray-700/60 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-dashed border-gray-300 dark:border-gray-600 select-none">
+                🔒 Scheduled for {customerInfo.arrivalDate}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="px-4 pb-4">
+            <button
+              onClick={() => onAdvance(order.id, col.nextStatus)}
+              className={`w-full flex items-center justify-center gap-1.5
+                          py-2 rounded-xl text-xs font-bold
+                          transition-colors duration-150 ${col.nextColor}`}
+            >
+              {col.nextLabel}
+              <ArrowRight size={13} />
+            </button>
+          </div>
+        );
+      })()}
     </div>
   )
 }
@@ -351,12 +409,12 @@ export default function LiveOrdersPage() {
     const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP${token ? `&token=${token}` : ''}`
     const eventSource = new EventSource(sseUrl)
 
+  // 🌟 Resilient Live Sync Handler: Instantly parses and triggers immediate store update
     const handleIncoming = (raw) => {
       try {
-        let data = typeof raw === 'string' ? JSON.parse(raw) : raw
-        let order = data.payload || data
+        let parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+        let order = parsed?.payload || parsed
         if (order && order.id) {
-          // 🌟 Instantly prepend new Web order to board and trigger fresh sync
           addNewOrder(order)
           fetchLiveOrders()
         }
@@ -365,10 +423,10 @@ export default function LiveOrdersPage() {
       }
     }
 
-    // Listen to standard named events
+    // Listen to all relevant backend live events
     eventSource.addEventListener('order_created', (e) => handleIncoming(e.data))
-    eventSource.addEventListener('invoice_created', (e) => handleIncoming(e.data))
     eventSource.addEventListener('invoice_finalized', (e) => handleIncoming(e.data))
+    eventSource.addEventListener('web_order_notification', (e) => handleIncoming(e.data))
 
     eventSource.onmessage = (event) => {
       try {

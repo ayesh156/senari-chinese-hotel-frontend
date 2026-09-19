@@ -21,31 +21,27 @@ export default function LiveOrderNotification() {
     }
   }, [fetchLiveOrders]);
 
-  // 🌟 Filter strictly for active WEB orders (ignores Walk-in / Quick POS transactions)
+// 🌟 Filter strictly for active WEB pre-orders (Strictly excludes POS / Walk-in orders from bell count)
   const liveOrders = storeOrders.filter((o) => {
-    const isNotDone = o.status !== 'READY' && o.status !== 'COMPLETED';
+    const isNotDone = o.status !== 'COMPLETED';
     if (!isNotDone) return false;
 
-    // Detect Customer Phone from all possible object locations
-    const phone = o.phone || o.customer?.phone || '';
-    const customerName = o.customerName || o.customer?.name || '';
+    // POS orders must NEVER appear in the notification bell
+    if (o.source === 'POS') return false;
 
-    // Check notes JSON for web identifiers
-    let hasWebNotes = false;
+    let hasWebMarkers = false;
     if (o.notes) {
       try {
         const parsed = typeof o.notes === 'string' ? JSON.parse(o.notes) : o.notes;
-        if (parsed.phone || parsed.arrivalDate || parsed.source === 'WEB') {
-          hasWebNotes = true;
+        if (parsed.arrivalDate || parsed.arrivalTime || parsed.phone) {
+          hasWebMarkers = true;
         }
       } catch {}
     }
 
-    // 🌟 A Web order has an explicit WEB source, a phone number, or arrival notes
-    const isWebOrder = o.source === 'WEB' || Boolean(phone) || Boolean(o.arrivalDate) || hasWebNotes;
-    const isWalkIn = customerName === 'Walk-in Customer' && !phone;
-
-    return isWebOrder && !isWalkIn;
+    const phone = o.phone || o.customer?.phone || '';
+    const isWeb = o.source === 'WEB' || Boolean(o.arrivalDate) || hasWebMarkers || (Boolean(phone) && phone.length >= 9);
+    return isWeb;
   });
 
 // 🌟 Real-time Native SSE Listener (Handles order_created, invoice_finalized & default message)
@@ -55,7 +51,7 @@ export default function LiveOrderNotification() {
     const sseUrl = `${baseUrl}/api/sync/stream?tenantId=default-tenant&terminalId=SHOP${token ? `&token=${token}` : ''}`
     const eventSource = new EventSource(sseUrl)
 
-    // 🌟 Millisecond-level Instant SSE Handler for Live Web Orders
+    // 🌟 Millisecond-level Instant SSE Handler: Updates bell ONLY for Web Orders
     const handleIncomingOrder = (rawPayload) => {
       try {
         let order = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
@@ -63,19 +59,19 @@ export default function LiveOrderNotification() {
         if (order.payload && order.payload.id) order = order.payload;
         if (!order.id) return;
 
-        // Quick POS counter orders are explicitly excluded
+        // 🌟 Strictly ignore POS counter orders from notification dropdown and bell counter
         if (order.source === 'POS') return;
 
-        // 1. Immediately inject incoming order to Live Orders Store for instant badge bump
+        // 1. Inject web order to liveOrdersStore
         useLiveOrdersStore.getState().addNewOrder(order);
 
-        // 2. Trigger fresh background sync to guarantee full customer relations
+        // 2. Fresh background fetch to ensure full DB relational consistency
         const liveStore = useLiveOrdersStore.getState();
         if (typeof liveStore.fetchLiveOrders === 'function') {
           liveStore.fetchLiveOrders();
         }
 
-        // 3. Sync invoices store in parallel
+        // 3. Sync invoices store
         const invStore = useInvoiceStore.getState();
         if (typeof invStore.fetchOrders === 'function') {
           invStore.fetchOrders();
@@ -196,9 +192,24 @@ export default function LiveOrderNotification() {
                   </div>
                   <div className="flex items-center justify-between mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                     <span className="truncate max-w-[150px]">{getCustomer(order)}</span>
-                    <span className="px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-[10px] font-semibold">
-                      {order.type || order.orderType || 'Order'}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {/* 🌟 Future Pre-order Schedule Tag: Dropdown එක තුළ දිනය සහ වේලාව පෙන්වීම */}
+                      {(order.arrivalDate || (order.notes && order.notes.includes('arrivalDate'))) && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-bold text-[10px]">
+                          {(() => {
+                            try {
+                              const p = typeof order.notes === 'string' ? JSON.parse(order.notes) : (order.notes || {})
+                              return p.arrivalDate || order.arrivalDate || 'Future'
+                            } catch {
+                              return order.arrivalDate || 'Future'
+                            }
+                          })()}
+                        </span>
+                      )}
+                      <span className="px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-[10px] font-semibold">
+                        {order.type || order.orderType || 'Order'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))

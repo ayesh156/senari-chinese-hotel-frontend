@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { orderApi } from '../api/order.api';
 import { useSettingsStore } from './settingsStore'; // 🌟 Added settings store for service charge rate
+import { useLiveOrdersStore } from './liveOrdersStore'; // 🌟 Auto-sync live kitchen board on POS submit
 
 const typeMapToApi = { 'Dine-in': 'DINE_IN', 'Takeaway': 'TAKEAWAY', 'Delivery': 'DELIVERY' };
 const typeMapFromApi = { 'DINE_IN': 'Dine-in', 'TAKEAWAY': 'Takeaway', 'DELIVERY': 'Delivery' };
@@ -195,6 +196,14 @@ export const useCartStore = create((set, get) => ({
       });
 
       if (json.success) {
+        // 🌟 POS එකෙන් දමන ලද බිල ක්ෂණිකව Kitchen Live Orders පුවරුවට එකතු කරයි
+        try {
+          useLiveOrdersStore.getState().addNewOrder(json.data);
+          useLiveOrdersStore.getState().fetchLiveOrders();
+        } catch (syncErr) {
+          console.warn('[cartStore] Live kitchen queue sync error:', syncErr);
+        }
+
         state.clearCart();
         return json.data;
       }
