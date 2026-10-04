@@ -413,9 +413,9 @@ function BillingPosTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_HOURS = DAYS.map(day => ({
   day,
-  open:  !['Sunday'].includes(day),
-  from:  '08:00',
-  to:    '21:00',
+  open:  true,
+  from:  '07:30',
+  to:    '22:00',
 }))
 
 function BusinessHoursTab() {

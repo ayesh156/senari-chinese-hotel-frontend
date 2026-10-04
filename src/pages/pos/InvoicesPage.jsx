@@ -661,9 +661,14 @@ export default function InvoicesPage() {
                         {/* Invoice ID + type */}
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="font-extrabold text-amber-500 text-sm leading-tight">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/pos/quick?editId=${order.id}`)}
+                              className="font-extrabold text-amber-500 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer text-left text-sm leading-tight transition-colors"
+                              title="Click to edit invoice in Quick POS"
+                            >
                               {order.invoiceNumber || invNum(order.id)}
-                            </p>
+                            </button>
                           </div>
                           <span className="shrink-0">
                             <TypeBadge type={order.type || order.orderType} />
@@ -761,7 +766,14 @@ export default function InvoicesPage() {
                                  hover:bg-amber-50/50 dark:hover:bg-gray-800/30
                                  transition-colors duration-150">
                       <td className="px-4 py-3">
-                        <p className="font-bold text-amber-500 whitespace-nowrap">{order.invoiceNumber || invNum(order.id)}</p>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/pos/quick?editId=${order.id}`)}
+                          className="font-bold text-amber-500 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer whitespace-nowrap text-left transition-colors"
+                          title="Click to edit invoice in Quick POS"
+                        >
+                          {order.invoiceNumber || invNum(order.id)}
+                        </button>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="text-gray-800 dark:text-gray-200 font-medium">{date}</p>

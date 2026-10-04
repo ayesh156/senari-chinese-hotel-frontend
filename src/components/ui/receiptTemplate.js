@@ -144,15 +144,21 @@ export function buildReceiptData(order = {}, opts = {}) {
   const serviceCharge = Number(order.serviceCharge || 0);
 
   const total = Number(order.total || (subtotal + serviceCharge - discount));
-  const amountPaid = Number(order.amountPaid || 0);
+  const rawPaid = Number(order.amountPaid ?? order.customerCash ?? 0);
   const paymentStatus = order.paymentStatus || "UNPAID";
   if (!paymentMethod) paymentMethod = "Cash";
+
+  // 🌟 Financial Integrity & Auditing: Safe calculation for paid amount, change, and due balance
+  // If payment status is explicitly marked PAID and rawPaid is 0 (e.g. Card settlement), treat as settled in full
+  const paidAmount = (paymentStatus === "PAID" && rawPaid === 0) ? total : rawPaid;
+  const changeAmount = Math.max(0, paidAmount - total);
+  const dueAmount = Math.max(0, total - paidAmount);
 
   const statusText =
     paymentStatus === "PAID"
       ? "PAID"
       : paymentStatus === "PARTIAL"
-        ? `PARTIAL (${fmtCurrencyDirect(amountPaid)})`
+        ? `PARTIAL (${fmtCurrencyDirect(paidAmount)})`
         : "NOT PAID";
 
   return {
@@ -168,7 +174,10 @@ export function buildReceiptData(order = {}, opts = {}) {
     serviceCharge, // 🌟 Passed to receipt renderer
     discount,
     total,
-    amountPaid,
+    amountPaid: paidAmount,
+    paidAmount,
+    changeAmount,
+    dueAmount,
     // payment
     paymentMethod,
     paymentStatus,
@@ -303,7 +312,43 @@ export function buildReceiptStyles() {
       font-weight: 900 !important;
     }
 
-    /* ── Payment Info ── */
+    /* ── Payment Info & Balance Details (Thermal 80mm Standard) ── */
+    .sc-receipt .payment-box {
+      margin-top: 1mm;
+      padding: 1.2mm 0;
+      border-top: 1px dashed #000;
+      font-size: 7.8pt;
+    }
+    .sc-receipt .payment-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0.4mm 0;
+      font-weight: 600;
+    }
+    .sc-receipt .payment-row .val {
+      font-weight: 800;
+      font-size: 8pt;
+    }
+    .sc-receipt .payment-row.highlight-change {
+      font-weight: 900 !important;
+      font-size: 8.5pt;
+    }
+    .sc-receipt .payment-row.highlight-change .val {
+      font-size: 9pt;
+      font-weight: 900 !important;
+    }
+    .sc-receipt .payment-row.highlight-due {
+      font-weight: 900 !important;
+      font-size: 8.5pt;
+      border-top: 1px dotted #000;
+      padding-top: 0.8mm;
+      margin-top: 0.5mm;
+    }
+    .sc-receipt .payment-row.highlight-due .val {
+      font-size: 9pt;
+      font-weight: 900 !important;
+    }
     .sc-receipt .payment-bar {
       display: flex;
       justify-content: space-between;
@@ -359,7 +404,7 @@ export function buildReceiptBody(d) {
     })
     .join("");
 
-// 🌟 Display Service Charge with its percentage tag
+  // 🌟 Display Service Charge with its percentage tag
   const serviceChargeRow =
     d.serviceCharge > 0
       ? `<div class="summary-row"><span>Service Charge (${d.serviceChargeRate || 10}%)</span><span>+ ${currency(d.serviceCharge)}</span></div>`
@@ -415,6 +460,30 @@ export function buildReceiptBody(d) {
       <span>TOTAL</span>
       <span>${currency(d.total)}</span>
     </div>
+
+    <!-- ── PAYMENT & BALANCE BREAKDOWN ── -->
+    <div class="payment-box">
+      <div class="payment-row">
+        <span>Customer Paid</span>
+        <span class="val">${currency(d.paidAmount)}</span>
+      </div>
+      ${d.changeAmount > 0 || (d.paidAmount >= d.total && d.paidAmount > 0)
+      ? `<div class="payment-row highlight-change">
+              <span>Balance</span>
+              <span class="val">${currency(d.changeAmount)}</span>
+            </div>`
+      : ""
+    }
+      ${d.dueAmount > 0
+      ? `<div class="payment-row highlight-due">
+              <span>Due Balance</span>
+              <span class="val">${currency(d.dueAmount)}</span>
+            </div>`
+      : ""
+    }
+    </div>
+
+    <div class="divider-dotted"></div>
 
     <!-- ── PAYMENT META ── -->
     <div class="payment-bar">

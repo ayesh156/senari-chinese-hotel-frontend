@@ -43,10 +43,12 @@ export default function ModernDateTimePicker({
   const todayFormatted = `${currentYear}-${currentMonth}-${currentDay}`
   const isSelectedToday = !dateValue || dateValue === todayFormatted
 
-  // Base restaurant slots between 8:00 AM (08:00) and 10:00 PM (22:00)
+  // Base restaurant slots between 7:30 AM (07:30) and 10:00 PM (22:00)
   const allSlots = []
-  for (let h = 8; h <= 22; h++) {
+  for (let h = 7; h <= 22; h++) {
     for (let m = 0; m < 60; m += 30) {
+      if (h === 7 && m < 30) continue // Restaurant opens at 7.30 a.m.
+      if (h === 22 && m > 0) continue // Restaurant closes at 10.00 p.m.
       const hh = String(h).padStart(2, '0')
       const mm = String(m).padStart(2, '0')
       allSlots.push(`${hh}:${mm}`)

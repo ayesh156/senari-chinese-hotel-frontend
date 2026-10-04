@@ -42,8 +42,8 @@ function getNextAvailableTimeSlot() {
     minutes = 0
   }
 
-  // Restaurant operational limit check (08:00 to 22:00)
-  if (hours < 8) return '08:30'
+  // Restaurant operational limit check (07:30 to 22:00)
+  if (hours < 7 || (hours === 7 && minutes < 30)) return '08:00'
   if (hours > 22 || (hours === 22 && minutes > 0)) return '22:00'
 
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
