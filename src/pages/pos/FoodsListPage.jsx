@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom' // 🌟 Added Link for Right-click Open in New Tab
+import { useNavigate, Link } from 'react-router-dom'
 import {
   Plus, Search, Pencil, Trash2,
   ChevronUp, ChevronDown, AlertTriangle,
   ImageOff, CheckCircle2, XCircle,
   Sparkles, X, SlidersHorizontal, Database,
-  List, LayoutGrid, Utensils,
+  List, LayoutGrid, Utensils, RotateCcw, Archive,
 } from 'lucide-react'
 import { FALLBACK_IMAGE_URL } from '../../utils/constants'
 import { useMasterDataStore, buildFoodCategoryFilterOptions } from '../../utils/masterDataStore'
@@ -92,7 +92,15 @@ function CategoryPill({ category }) {
   )
 }
 
-function AvailabilityBadge({ available }) {
+function AvailabilityBadge({ available, isDeleted }) {
+  if (isDeleted) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+        <Archive size={11} /> Archived
+      </span>
+    )
+  }
+
   return available ? (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
       <CheckCircle2 size={11} /> Available
@@ -118,11 +126,45 @@ function DeleteModal({ item, onConfirm, onCancel }) {
           </div>
         </div>
         <div className="p-6">
-          <p className="text-gray-600 dark:text-gray-300 mb-4">This action cannot be undone.</p>
+          <p className="text-gray-600 dark:text-gray-300 mb-2">Are you sure you want to remove this food item?</p>
+          <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800 mb-4">
+            Item is linked to past orders and will be archived/hidden instead of permanently deleted.
+          </p>
           <p className="text-sm font-semibold p-3 rounded-xl border text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50">"{item.name}"</p>
         </div>
         <div className="p-6 border-t border-gray-200 dark:border-gray-700/50 flex gap-3">
-          <button onClick={onConfirm} className="flex-1 px-4 py-2.5 rounded-xl font-medium text-sm text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 transition-all flex items-center justify-center gap-2"><Trash2 size={15} /> Delete</button>
+          <button onClick={onConfirm} className="flex-1 px-4 py-2.5 rounded-xl font-medium text-sm text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 transition-all flex items-center justify-center gap-2"><Trash2 size={15} /> Delete / Archive</button>
+          <button onClick={onCancel} className="flex-1 px-4 py-2.5 rounded-xl font-medium text-sm border transition-colors bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600/50">Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Restore Modal ─────────────────────────────────────────────────────────────
+function RestoreModal({ item, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="rounded-2xl max-w-md w-full shadow-2xl border overflow-hidden bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700/50">
+        <div className="p-6 border-b bg-gradient-to-r from-emerald-100 to-green-50 dark:from-emerald-600/20 dark:to-emerald-500/10 border-emerald-200 dark:border-emerald-500/30">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-emerald-100 dark:bg-emerald-500/20">
+              <RotateCcw size={22} className="text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Restore Food Item</h2>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Unarchive item back to active food list</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <p className="text-gray-600 dark:text-gray-300 mb-3">Are you sure you want to restore this food item back to active status?</p>
+          <p className="text-sm font-semibold p-3 rounded-xl border text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50">"{item.name}"</p>
+        </div>
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700/50 flex gap-3">
+          <button onClick={onConfirm} className="flex-1 px-4 py-2.5 rounded-xl font-medium text-sm text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600 transition-all flex items-center justify-center gap-2">
+            <RotateCcw size={15} /> Restore Item
+          </button>
           <button onClick={onCancel} className="flex-1 px-4 py-2.5 rounded-xl font-medium text-sm border transition-colors bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600/50">Cancel</button>
         </div>
       </div>
@@ -138,6 +180,9 @@ export default function FoodsListPage() {
   const fetchFoods = useFoodStore(s => s.fetchAll)
   const updateFood = useFoodStore(s => s.update)
   const deleteFood = useFoodStore(s => s.remove)
+  const restoreFood = useFoodStore(s => s.restore)
+
+  const [tab, setTab] = useState('active') // 'active' | 'archived'
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('All')
   const [availFilter, setAvailFilter] = useState('all')
@@ -147,17 +192,18 @@ export default function FoodsListPage() {
   const [sortDir, setSortDir] = useState('desc')
   const [page, setPage] = useState(1)
   const [delItem, setDelItem] = useState(null)
+  const [resItem, setResItem] = useState(null)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [viewMode, setViewMode] = useState('table')
 
-  // 🌟 Cross-Tab Instant Sync: Re-fetches foods if an item is updated in another tab/window
+  // 🌟 Cross-Tab Instant Sync: Re-fetches foods including soft-deleted items
   useEffect(() => {
-    fetchFoods()
+    fetchFoods({ includeDeleted: true })
 
     const channel = new BroadcastChannel('pos_foods_channel')
     channel.onmessage = (event) => {
       if (event.data?.type === 'FOOD_UPDATED' || event.data?.type === 'FOOD_CREATED') {
-        fetchFoods()
+        fetchFoods({ includeDeleted: true })
       }
     }
 
@@ -175,37 +221,29 @@ export default function FoodsListPage() {
   const foodCategories = useMasterDataStore(s => s.foodCategories)
   const catSelectOptions = useMemo(() => buildFoodCategoryFilterOptions(foodCategories), [foodCategories])
 
-  // ── Debug: log sample image paths ─────────────────────────────────────────
-  useEffect(() => {
-    if (foods.length > 0) {
-      console.log('Sample Image DB Path:', foods[0]?.image)
-      console.log('Sample Image Generated URL:', getImageUrl(foods[0]?.image))
-    }
-  }, [foods])
+  const activeFoods = useMemo(() => foods.filter(i => !i.isDeleted), [foods])
+  const archivedFoods = useMemo(() => foods.filter(i => i.isDeleted), [foods])
+  const currentTabFoods = tab === 'archived' ? archivedFoods : activeFoods
 
-  // 🌟 Reports-Driven Natural Sort: 1. Pinned -> 2. Top Selling (Total Sold) -> 3. Food Code -> 4. ID
+  // 🌟 Reports-Driven Natural Sort
   const sortedFoods = useMemo(() => {
-    return [...foods].sort((a, b) => {
-      // 1. Featured / Pinned priority
+    return [...currentTabFoods].sort((a, b) => {
       if (a.isFeatured && !b.isFeatured) return -1;
       if (!a.isFeatured && b.isFeatured) return 1;
 
-      // 2. Best Performers from Reports (Highest totalSold quantity first)
       const aSold = Number(a.totalSold || a.salesCount || 0);
       const bSold = Number(b.totalSold || b.salesCount || 0);
       if (bSold !== aSold) return bSold - aSold;
 
-      // 3. Natural Food Code order
       if (a.code && b.code) {
         return a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' });
       }
       if (a.code && !b.code) return -1;
       if (!a.code && b.code) return 1;
 
-      // 4. Default fallback: Newest ID first
       return (b.id || 0) - (a.id || 0);
     });
-  }, [foods]);
+  }, [currentTabFoods]);
 
   // ── Derived filtered + sorted list ───────────────────────────────────────
   const filtered = useMemo(() => {
@@ -215,7 +253,6 @@ export default function FoodsListPage() {
         const rawQ = search.trim().toLowerCase()
         const numQ = rawQ.replace(/^0+/, '')
 
-        // 🌟 Search by Item Name, Category, or Food Code (Exact & zero-normalized like 011 / 11)
         const nameMatch = (i.name || '').toLowerCase().includes(rawQ)
         const catMatch = catName.toLowerCase().includes(rawQ)
         
@@ -234,7 +271,6 @@ export default function FoodsListPage() {
         return matchSearch && matchCat && matchAvail && matchPrice && matchNew
       })
       .sort((a, b) => {
-        // If sorting specifically by code, use natural numeric order
         if (sortKey === 'code') {
           const ca = String(a.code || '')
           const cb = String(b.code || '')
@@ -246,7 +282,6 @@ export default function FoodsListPage() {
         }
 
         const va = a[sortKey], vb = b[sortKey]
-        // Handle numeric fields (id, price) vs string fields (name, category)
         if (typeof va === 'number' && typeof vb === 'number') {
           return sortDir === 'asc' ? va - vb : vb - va
         }
@@ -276,23 +311,26 @@ export default function FoodsListPage() {
   }
 
   async function handleDelete(id) { await deleteFood(id); setDelItem(null); resetPage() }
+  async function handleRestore(id) { await restoreFood(id); setResItem(null); resetPage() }
   async function toggleAvailability(id) {
     const item = foods.find(i => i.id === id)
-    if (item) await updateFood(id, { isAvailable: !item.isAvailable })
+    if (item && !item.isDeleted) await updateFood(id, { isAvailable: !item.isAvailable })
   }
 
-  const hasAdvancedFilters = priceRange !== 'all' || newOnly
-  const hasAnyFilter = search || catFilter !== 'All' || availFilter !== 'all' || priceRange !== 'all' || newOnly
-  const availableCount = foods.filter(i => i.isAvailable).length
+  const hasAdvancedFilters = priceRange !== 'all' || newOnly || tab !== 'active'
+  const hasAnyFilter = search || catFilter !== 'All' || availFilter !== 'all' || priceRange !== 'all' || newOnly || tab !== 'active'
+  const availableCount = activeFoods.filter(i => i.isAvailable).length
 
-  function clearAll() { setSearch(''); setCatFilter('All'); setAvailFilter('all'); setPriceRange('all'); setNewOnly(false); resetPage() }
+  function clearAll() { setSearch(''); setCatFilter('All'); setAvailFilter('all'); setPriceRange('all'); setNewOnly(false); setTab('active'); resetPage() }
 
   return (
     <div className="flex flex-col gap-5 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Foods</h1>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{foods.length} items · {availableCount} available</p>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            {activeFoods.length} active items · {availableCount} available · {archivedFoods.length} archived
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <button type="button" onClick={() => navigate('/pos/master-data')}
@@ -338,9 +376,40 @@ export default function FoodsListPage() {
               ))}
             </div>
           </div>
-          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showAdvancedFilters ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showAdvancedFilters ? 'max-h-36 opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 shrink-0">More filters:</span>
+              {/* 🌟 Tab View Toggle (Active Foods vs Archived / Trash) */}
+              <div className="inline-flex items-center p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/60 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => { setTab('active'); resetPage() }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all duration-150 ${
+                    tab === 'active'
+                      ? 'bg-white dark:bg-gray-900 text-amber-600 dark:text-amber-400 shadow-sm border border-gray-200/60 dark:border-gray-700/60'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Utensils size={13} /> Active Foods
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${tab === 'active' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                    {activeFoods.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTab('archived'); resetPage() }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all duration-150 ${
+                    tab === 'archived'
+                      ? 'bg-white dark:bg-gray-900 text-red-600 dark:text-red-400 shadow-sm border border-gray-200/60 dark:border-gray-700/60'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Archive size={13} /> Archived / Trash
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${tab === 'archived' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                    {archivedFoods.length}
+                  </span>
+                </button>
+              </div>
               <SearchableSelect options={PRICE_RANGE_OPTIONS} value={priceRange} onChange={v => { setPriceRange(v); resetPage() }} placeholder="Any Price" searchPlaceholder="Search range…" triggerClassName="w-40" />
               <button onClick={() => { setNewOnly(v => !v); resetPage() }}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all duration-150 ${newOnly ? 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700'}`}>
@@ -348,7 +417,7 @@ export default function FoodsListPage() {
               </button>
             </div>
           </div>
-          {hasAnyFilter && <p className="text-xs text-gray-400 dark:text-gray-600">Showing {filtered.length} of {foods.length} items</p>}
+          {hasAnyFilter && <p className="text-xs text-gray-400 dark:text-gray-600">Showing {filtered.length} of {currentTabFoods.length} items</p>}
         </div>
       </div>
 
@@ -358,7 +427,9 @@ export default function FoodsListPage() {
             {pageItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <ImageOff size={32} className="text-gray-300 dark:text-gray-700" />
-                <p className="text-sm font-medium text-gray-400 dark:text-gray-600">No items match your filters</p>
+                <p className="text-sm font-medium text-gray-400 dark:text-gray-600">
+                  {tab === 'archived' ? 'No archived food items found' : 'No items match your filters'}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
@@ -367,17 +438,27 @@ export default function FoodsListPage() {
                     <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-700">
                       <FoodThumbnail imagePath={item.image} alt={item.name} className="w-full h-full" />
                       {item.isNew && <span className="absolute top-2 left-2 text-[10px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">NEW</span>}
-                      <button onClick={() => toggleAvailability(item.id)} className="absolute top-2 right-2 transition-opacity hover:opacity-80"><AvailabilityBadge available={item.isAvailable} /></button>
+                      <button onClick={() => toggleAvailability(item.id)} disabled={item.isDeleted} className="absolute top-2 right-2 transition-opacity hover:opacity-80">
+                        <AvailabilityBadge available={item.isAvailable} isDeleted={item.isDeleted} />
+                      </button>
                     </div>
                     <div className="flex flex-col flex-1 p-3 gap-2">
                       <p className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight line-clamp-2">{item.name}</p>
                       <CategoryPill category={item.category?.name || item.category} />
                       <p className="text-base font-extrabold text-amber-600 dark:text-amber-400 tabular-nums mt-auto">{fmtCurrencyDirect(item.price)}</p>
                     </div>
-                    <div className="flex border-t border-amber-100 dark:border-gray-700 divide-x divide-amber-100 dark:divide-gray-700">
-                      <button onClick={() => navigate(`/pos/foods/edit/${item.id}`)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-100/50 dark:hover:bg-amber-500/10 transition-colors"><Pencil size={13} /> Edit</button>
-                      <button onClick={() => setDelItem(item)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"><Trash2 size={13} /> Delete</button>
-                    </div>
+                    {item.isDeleted ? (
+                      <div className="flex border-t border-amber-100 dark:border-gray-700">
+                        <button onClick={() => setResItem(item)} className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
+                          <RotateCcw size={14} /> Restore Food Item
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex border-t border-amber-100 dark:border-gray-700 divide-x divide-amber-100 dark:divide-gray-700">
+                        <button onClick={() => navigate(`/pos/foods/edit/${item.id}`)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-100/50 dark:hover:bg-amber-500/10 transition-colors"><Pencil size={13} /> Edit</button>
+                        <button onClick={() => setDelItem(item)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"><Trash2 size={13} /> Delete</button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -390,7 +471,7 @@ export default function FoodsListPage() {
                 <tr className="border-b bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700/50">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 w-16">Image</th>
                   {[
-                    { label: 'Code', col: 'code' }, // 🌟 Clickable Code sort
+                    { label: 'Code', col: 'code' },
                     { label: 'Name', col: 'name' },
                     { label: 'Category', col: 'category' },
                     { label: 'Price', col: 'price' }
@@ -405,12 +486,11 @@ export default function FoodsListPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {pageItems.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-14 text-center"><ImageOff size={28} className="mx-auto mb-2 text-gray-300 dark:text-gray-700" /><p className="text-sm font-medium text-gray-400 dark:text-gray-600">No items match your filters</p></td></tr>
+                  <tr><td colSpan={7} className="px-4 py-14 text-center"><ImageOff size={28} className="mx-auto mb-2 text-gray-300 dark:text-gray-700" /><p className="text-sm font-medium text-gray-400 dark:text-gray-600">{tab === 'archived' ? 'No archived food items found' : 'No items match your filters'}</p></td></tr>
                 ) : pageItems.map(item => (
                   <tr key={item.id} className="transition-all duration-150 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 hover:bg-amber-50/50 dark:hover:bg-gray-800/30">
                     <td className="px-4 py-3"><FoodThumbnail imagePath={item.image} alt={item.name} /></td>
 
-                    {/* 🌟 Dedicated Food Code Column (Aligns with header 'Code') */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       {item.code ? (
                         <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
@@ -421,15 +501,20 @@ export default function FoodsListPage() {
                       )}
                     </td>
 
-                    {/* 🌟 Name Column with native <Link> for Right-Click "Open in New Tab" */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Link
-                          to={`/pos/foods/edit/${item.id}`}
-                          className="font-semibold text-gray-900 dark:text-white whitespace-nowrap hover:text-amber-500 dark:hover:text-amber-400 transition-colors text-left"
-                        >
-                          {item.name}
-                        </Link>
+                        {item.isDeleted ? (
+                          <span className="font-semibold text-gray-500 dark:text-gray-400 line-through">
+                            {item.name}
+                          </span>
+                        ) : (
+                          <Link
+                            to={`/pos/foods/edit/${item.id}`}
+                            className="font-semibold text-gray-900 dark:text-white whitespace-nowrap hover:text-amber-500 dark:hover:text-amber-400 transition-colors text-left"
+                          >
+                            {item.name}
+                          </Link>
+                        )}
                         {item.isFeatured && (
                           <span title="Pinned to top in Quick Invoice" className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-md leading-none flex items-center gap-0.5">
                             PINNED
@@ -443,20 +528,33 @@ export default function FoodsListPage() {
                     <td className="px-4 py-3 whitespace-nowrap"><CategoryPill category={item.category?.name || item.category} /></td>
                     <td className="px-4 py-3 font-bold tabular-nums whitespace-nowrap text-gray-900 dark:text-white">{fmtCurrencyDirect(item.price)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <button onClick={() => toggleAvailability(item.id)} title="Click to toggle" className="transition-opacity hover:opacity-75"><AvailabilityBadge available={item.isAvailable} /></button>
+                      <button onClick={() => toggleAvailability(item.id)} disabled={item.isDeleted} title={item.isDeleted ? "Item is archived" : "Click to toggle"} className="transition-opacity hover:opacity-75 disabled:cursor-not-allowed">
+                        <AvailabilityBadge available={item.isAvailable} isDeleted={item.isDeleted} />
+                      </button>
                     </td>
 
-                    {/* 🌟 Action Buttons with native <Link> for Pencil icon */}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <Link
-                          to={`/pos/foods/edit/${item.id}`}
-                          aria-label={`Edit ${item.name}`}
-                          className="p-2 rounded-xl transition-colors text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
-                        >
-                          <Pencil size={15} />
-                        </Link>
-                        <button onClick={() => setDelItem(item)} aria-label={`Delete ${item.name}`} className="p-2 rounded-xl transition-colors text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
+                        {item.isDeleted ? (
+                          <button
+                            onClick={() => setResItem(item)}
+                            title="Restore food item"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"
+                          >
+                            <RotateCcw size={14} /> Restore
+                          </button>
+                        ) : (
+                          <>
+                            <Link
+                              to={`/pos/foods/edit/${item.id}`}
+                              aria-label={`Edit ${item.name}`}
+                              className="p-2 rounded-xl transition-colors text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                            >
+                              <Pencil size={15} />
+                            </Link>
+                            <button onClick={() => setDelItem(item)} aria-label={`Delete ${item.name}`} className="p-2 rounded-xl transition-colors text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -468,13 +566,14 @@ export default function FoodsListPage() {
         <ModernPagination currentPage={safePage} totalPages={totalPages} totalItems={filtered.length} itemsPerPage={PAGE_SIZE} onPageChange={p => setPage(p)} />
         {totalPages <= 1 && (
           <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2 flex-wrap">
-            <p className="text-xs text-gray-400 dark:text-gray-600">{filtered.length} of {foods.length} items</p>
+            <p className="text-xs text-gray-400 dark:text-gray-600">{filtered.length} of {currentTabFoods.length} items</p>
             <p className="text-xs text-gray-400 dark:text-gray-600">Click status badge to toggle · Click column headers to sort</p>
           </div>
         )}
       </div>
 
       {delItem && <DeleteModal item={delItem} onConfirm={() => handleDelete(delItem.id)} onCancel={() => setDelItem(null)} />}
+      {resItem && <RestoreModal item={resItem} onConfirm={() => handleRestore(resItem.id)} onCancel={() => setResItem(null)} />}
     </div>
   )
 }

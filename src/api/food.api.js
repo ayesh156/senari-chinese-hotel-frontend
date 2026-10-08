@@ -5,7 +5,20 @@
 import { apiClient } from './apiClient';
 
 export const foodApi = {
-  getAll: () => apiClient.get('/foods'),
+  getAll: (params) => {
+    let query = '';
+    if (params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value);
+        }
+      });
+      const str = searchParams.toString();
+      if (str) query = `?${str}`;
+    }
+    return apiClient.get(`/foods${query}`);
+  },
 
   getById: (id) => apiClient.get(`/foods/${id}`),
 
@@ -17,6 +30,9 @@ export const foodApi = {
 
   update: (id, formData) =>
     apiClient.put(`/foods/${id}`, formData),
+
+  restore: (id) =>
+    apiClient.patch(`/foods/${id}/restore`),
 
   remove: (id) =>
     apiClient.del(`/foods/${id}`),

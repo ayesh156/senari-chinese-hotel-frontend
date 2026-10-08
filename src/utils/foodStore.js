@@ -10,11 +10,12 @@ export const useFoodStore = create((set, get) => ({
   foods: [],
   loading: false,
   error: null,
+  lastParams: null,
 
-  fetchAll: async () => {
-    set({ loading: true, error: null });
+  fetchAll: async (params = { includeDeleted: true }) => {
+    set({ loading: true, error: null, lastParams: params });
     try {
-      const jsonRes = await foodApi.getAll();
+      const jsonRes = await foodApi.getAll(params);
       const foodsArray = Array.isArray(jsonRes.data) ? jsonRes.data : (Array.isArray(jsonRes) ? jsonRes : []);
       set({ foods: foodsArray, loading: false, error: null });
     } catch (e) {
@@ -29,7 +30,7 @@ export const useFoodStore = create((set, get) => ({
     try {
       const json = await foodApi.create(formData);
       if (json.success) {
-        await get().fetchAll();
+        await get().fetchAll(get().lastParams);
         set({ loading: false, error: null });
         return { success: true, data: json.data };
       }
@@ -49,7 +50,7 @@ export const useFoodStore = create((set, get) => ({
     try {
       const json = await foodApi.update(id, data);
       if (json.success) {
-        await get().fetchAll();
+        await get().fetchAll(get().lastParams);
         set({ loading: false, error: null });
         return { success: true, data: json.data };
       }
@@ -63,18 +64,64 @@ export const useFoodStore = create((set, get) => ({
     }
   },
 
+  restore: async (id) => {
+    try {
+      // Optimistically mark item as active in local state
+      set(state => ({
+        foods: state.foods.map(f => f.id === id ? { ...f, isDeleted: false, isAvailable: true } : f)
+      }));
+
+      const json = await foodApi.restore(id);
+      if (json.success) {
+        toast.success(json.message || 'Food item restored successfully');
+        try {
+          const channel = new BroadcastChannel('pos_foods_channel');
+          channel.postMessage({ type: 'FOOD_UPDATED', id });
+          channel.close();
+        } catch {}
+        if (json.data) {
+          set(state => ({
+            foods: state.foods.map(f => f.id === id ? { ...f, ...json.data, isDeleted: false, isAvailable: true } : f)
+          }));
+        }
+        return { success: true, data: json.data };
+      }
+      await get().fetchAll(get().lastParams);
+      toast.error(json.error || 'Failed to restore food item');
+      return { success: false, error: json.error || 'Failed to restore food item' };
+    } catch (e) {
+      await get().fetchAll(get().lastParams);
+      const errorMsg = e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to restore food item';
+      toast.error(errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  },
+
   remove: async (id) => {
     try {
+      // Optimistically update state so UI immediately archives item
+      set(state => ({
+        foods: state.foods.map(f => f.id === id ? { ...f, isDeleted: true, isAvailable: false } : f)
+      }));
+
       const json = await foodApi.remove(id);
       if (json.success) {
-        await get().fetchAll();
-        toast.success('Food item deleted successfully');
+        toast.success(json.message || 'Food item archived successfully');
+        try {
+          const channel = new BroadcastChannel('pos_foods_channel');
+          channel.postMessage({ type: 'FOOD_UPDATED', id });
+          channel.close();
+        } catch {}
         return true;
       }
-      toast.error(json.error || 'Failed to delete food item');
+      // Revert if request failed
+      await get().fetchAll(get().lastParams);
+      toast.error(json.error || 'Failed to archive food item');
       return false;
     } catch (e) {
-      toast.error(e?.response?.data?.message || e.message || 'Cannot delete: This record is currently in use.');
+      await get().fetchAll(get().lastParams);
+      const errorMsg = e?.response?.data?.error || e?.response?.data?.message || e.message || 'Item is linked to past orders and will be archived/hidden instead of permanently deleted.';
+      toast.error(errorMsg);
       return false;
     }
   },
